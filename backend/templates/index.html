@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lethal Company Speedrun Helper</title>
+<link rel="stylesheet" href="style.css" />
+<style>
+    body { background:#1a1a1a; color:#f7a85d; font-family: 'Courier New', monospace; margin: 0; }
+    
+    :root {
+        --lc-orange: #f7a85d;
+        --lc-bg: #111;
+        --table-header-green: #4b6e32;
+        --cell-border: #444;
+        --roll-red: #e06666;
+        --roll-orange: #f6b26b;
+        --roll-green: #93c47d;
+        /* Museum Colors */
+        --tracker-grey: #3a3a3a;
+        --tracker-green: #00b300;
+    }
+
+    .logo { text-align:center; font-size:48px; color:#f46b4e; margin-top:40px; text-shadow: 2px 2px 0px #000; }
+    .logo.small { font-size:32px; margin-top: 20px; }
+    
+    .menu { width:300px; margin:40px auto; display:flex; flex-direction:column; gap:10px; }
+    .input { padding:10px; background:#000; border:1px solid var(--lc-orange); color:var(--lc-orange); outline: none; font-family: inherit; }
+    
+    .btn { 
+        padding:10px; background:var(--lc-orange); border:none; cursor:pointer; 
+        color:#000; font-weight:bold; transition: 0.2s; text-transform: uppercase; letter-spacing: 1px;
+    }
+    .btn:hover { background:#ffbd7a; box-shadow: 0 0 10px var(--lc-orange); }
+    
+    .screen { display:none; min-height: 100vh; box-sizing: border-box; padding-bottom: 50px;} 
+    
+    .tabs { display:flex; gap:5px; margin:20px 20px 0 20px; border-bottom: 1px solid var(--lc-orange); }
+    .tab { 
+        padding:10px 20px; background:#111; border:1px solid var(--lc-orange); border-bottom: none; 
+        cursor:pointer; color:var(--lc-orange); margin-bottom: -1px; 
+    }
+    .tab.active { background:var(--lc-orange); color:#000; font-weight: bold; }
+    
+    .tab-pane { display: none; padding: 20px; animation: fadeIn 0.3s; }
+    .tab-pane.active { display: block; }
+
+    @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+
+    .quota-container { overflow-x: auto; }
+    .lc-table { width: 100%; border-collapse: collapse; font-size: 12px; color: #fff; min-width: 1200px; }
+    .lc-table th, .lc-table td { border: 1px solid var(--cell-border); padding: 6px 4px; text-align: center; }
+    .lc-table thead th { background-color: #333; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; }
+    .lc-table th.green-header { background-color: var(--table-header-green); color: #fff; }
+    
+    .bg-roll-red { background-color: var(--roll-red); color: #000; font-weight: bold; }
+    .bg-roll-orange { background-color: var(--roll-orange); color: #000; font-weight: bold; }
+    .text-green { color: #6aa84f; font-weight: bold; }
+    
+    .table-select { background: transparent; color: #fff; border: none; font-family: inherit; font-size: 11px; width: 100%; }
+    .table-select option { background: #222; }
+    .table-input { background: transparent; border: none; border-bottom: 1px solid #555; color: #fff; width: 90%; text-align: center; font-family: inherit; }
+    .table-input:focus { border-bottom: 1px solid var(--lc-orange); outline: none; }
+
+    .tracker-header { text-align: center; margin-bottom: 20px; }
+    .tracker-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); 
+        gap: 5px;
+        background-color: #111;
+        padding: 10px;
+        border: 1px solid #444;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .tracker-item {
+        aspect-ratio: 1 / 1;
+        background-color: var(--tracker-grey);
+        border: 1px solid #555;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px
+        cursor: pointer;
+        transition: background-color 0.1s;
+        user-select: none;
+    }
+
+    .tracker-item:hover {
+        border-color: #fff;
+    }
+
+    .tracker-item.collected {
+        background-color: var(--tracker-green);
+    }
+
+    .tracker-item img {
+        width: 80%;
+        height: 80%;
+        object-fit: contain;
+        pointer-events: none;
+    }
+    
+    .reset-container { text-align: center; margin-top: 20px; }
+    .btn-reset { background: #fff; color: #000; font-size: 12px; padding: 8px 16px; }
+
+</style>
+<script>
+    let isLoggedIn = false;
+
+    function show(id){ 
+        document.querySelectorAll('.screen').forEach(s => s.style.display = 'none'); 
+        const target = document.getElementById(id);
+        if(target) target.style.display = 'block'; 
+    }
+
+    async function createRoom() {
+        const version = document.getElementById("room-version").value;
+        let code = document.getElementById("room-code").value || 
+                Math.random().toString(36).substring(2,6).toUpperCase();
+
+        const res = await fetch("/api/rooms/", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                gameVersion: version,
+                code: code
+            })
+        });
+
+        if (!res.ok) {
+            alert("Error creating room");
+            return;
+        }
+
+        const data = await res.json();
+
+        document.querySelector("#room-view .logo.small").innerText =
+            `Room ${data.code} — v${data.gameVersion}`;
+
+        show("room-view");
+    }
+
+    function joinRoom(){
+        const input = document.getElementById('join-input');
+        const code = input.value.trim();
+        if(code === '123') {
+            const roomInfo = document.querySelector('#room-view .logo.small');
+            if(roomInfo){ roomInfo.innerText = `Room ${code} — Joined`; }
+            show('room-view');
+        } else {
+            alert('Error: Room not found! Try code: 123');
+        }
+    }
+
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        
+        const buttons = document.querySelectorAll('.tab');
+        buttons.forEach(btn => { if(btn.textContent.includes(tabName)) btn.classList.add('active'); });
+
+        const paneId = 'pane-' + tabName.toLowerCase().split(' ')[0]; 
+        const pane = document.getElementById(paneId);
+        if(pane) pane.classList.add('active');
+    }
+
+    function toggleItem(element) {
+        element.classList.toggle('collected');
+    }
+
+    function resetTracker() {
+        const items = document.querySelectorAll('.tracker-item');
+        items.forEach(item => item.classList.remove('collected'));
+    }
+
+    document.addEventListener('click', e => {
+        if (e.target.classList.contains('tab')) {
+            switchTab(e.target.textContent);
+        }
+    });
+
+    async function login() {
+        const username = document.getElementById("login-user").value;
+        const password = document.getElementById("login-pass").value;
+
+        const res = await fetch("/api/users/login/", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            isLoggedIn = true;
+            updateMenu();
+            show("home-screen");
+        }else {
+            alert(data.detail || "Login failed");
+        }
+    }
+
+    async function register() {
+        const username = document.getElementById("reg-user").value;
+        const password = document.getElementById("reg-pass").value;
+
+        const res = await fetch("/api/users/register/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password })
+        });
+
+        if (res.ok) show("login-screen");
+    }
+
+    async function loginUser() {
+        const username = document.getElementById("login-username").value;
+        const password = document.getElementById("login-password").value;
+
+        const res = await fetch("/api/users/login/", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                username: username,
+                password: password
+            })
+        });
+
+        const data = await res.json();
+
+        console.log("Login response:", data);
+
+        if (res.ok) {
+
+            show("home-screen");
+        } else {
+            alert(data.detail || "Login failed");
+        }
+    }
+
+    function updateMenu() {
+        const menu = document.getElementById("sidebar-menu");
+
+        if (isLoggedIn) {
+            menu.innerHTML = `
+                <button class="btn" onclick="show('profile-screen')">Profile</button>
+                <button class="btn" onclick="logoutUser()">Logout</button>
+                <div style="height:20px;"></div>
+                <button class="btn" onclick="show('create-room')">Create Room</button>
+                <button class="btn" onclick="show('join-room')">Join Room</button>
+            `;
+        } else {
+            menu.innerHTML = `
+                <button class="btn" onclick="show('login-screen')">Login</button>
+                <button class="btn" onclick="show('register-screen')">Register</button>
+                <div style="height:20px;"></div>
+                <button class="btn" onclick="show('create-room')">Create Room</button>
+                <button class="btn" onclick="show('join-room')">Join Room</button>
+            `;
+        }
+    }
+    document.addEventListener("DOMContentLoaded", updateMenu);
+
+
+
+</script>
+</head>
+<body>
+
+<div class="screen" id="login-screen" style="display:none;">
+    <h1 class="logo">LETHAL COMPANY</h1>
+    <div class="menu">
+        <h2>Login</h2>
+        <input class="input" id="login-username" placeholder="Username" />
+        <input class="input" id="login-password" placeholder="Password" type="password" />
+        <button class="btn" onclick="loginUser()">Login</button>
+        <button class="btn">Register</button>
+    </div>
+</div>
+
+<div class="screen" id="register-screen" style="display:none;">
+    <h1 class="logo">LETHAL COMPANY</h1>
+    <div class="menu">
+        <h2>Register</h2>
+        <input class="input" placeholder="Username" />
+        <input class="input" placeholder="Password" type="password" />
+        <button class="btn">Create Account</button>
+        <button class="btn" onclick="show('login-screen')">Back to Login</button>
+    </div>
+</div>
+
+<div class="screen" id="home-screen" style="display:block;">
+    <h1 class="logo small" style="border-bottom: 1px solid #f7a85d;">Lethal Company <span style="font-size:14px; color:#666;">Speedrun Helper</span></h1>
+    <div style="display:flex; height:80vh;">
+        <div id="sidebar-menu" style="width:200px; border-right:1px solid #333; padding:10px; display:flex; flex-direction:column; gap:10px;">
+            <button class="btn" onclick="show('login-screen')">Login</button>
+            <button class="btn" onclick="show('register-screen')">Register</button>
+            <button class="btn" onclick="show('forum')">Forum</button>
+            <div style="height:20px;"></div>
+            <button class="btn" onclick="show('create-room')">Create Room</button>
+            <button class="btn" onclick="show('join-room')">Join Room</button>
+        </div>
+        <div style="flex:1; padding:20px;">
+            <h2>Updates</h2>
+            <p style="color:#888;">Welcome to the speedrun dashboard.</p>
+        </div>
+    </div>
+</div>
+
+<div class="screen" id="forum" style="display:none;">
+    <h1 class="logo small">Forum</h1>
+    <div class="menu">
+        <p>Under construction</p>
+        <button class="btn" onclick="show('home-screen')">Back</button>
+    </div>
+</div>
+
+<div class="screen" id="create-room" style="display:none;">
+    <h1 class="logo small">Create Room</h1>
+    <div class="menu" style="width:350px;">
+        <label>Game Version:</label>
+        <select class="input" id="room-version"><option>1.6.1</option><option>1.6.2</option><option>Experimental</option></select>
+        <label>Room Code:</label>
+        <input class="input" id="room-code" placeholder="Custom code (optional)" />
+        <button class="btn" onclick="createRoom()">Create</button>
+        <button class="btn" onclick="show('home-screen')">Cancel</button>
+    </div>
+</div>
+
+<div class="screen" id="join-room" style="display:none;">
+    <h1 class="logo small">Join Room</h1>
+    <div class="menu">
+        <input class="input" id="join-input" placeholder="Enter Code (try: 123)" />
+        <button class="btn" onclick="joinRoom()">Join</button>
+        <button class="btn" onclick="show('home-screen')">Cancel</button>
+    </div>
+</div>
+
+<div class="screen" id="room-view" style="display:none;">
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:0 20px;">
+        <h1 class="logo small">Room #____</h1>
+        <button class="btn" style="padding:5px 10px; font-size:12px;" onclick="show('home-screen')">Exit Room</button>
+    </div>
+    
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('Quota')">Quota Table</button>
+        <button class="tab" onclick="switchTab('Museum')">Museum</button>
+        <button class="tab" onclick="switchTab('Players')">Players</button>
+    </div>
+
+    <div id="pane-quota" class="tab-pane active">
+        <div class="quota-container">
+            <table class="lc-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2">QUOTA</th>
+                        <th rowspan="2" class="green-header">QUOTA TOTAL</th>
+                        <th rowspan="2">ROLLS</th>
+                        <th>NEXT ROLL</th>
+                        <th rowspan="2">ROLLS AVG</th>
+                        <th rowspan="2" class="green-header">MOON</th>
+                        <th rowspan="2" class="green-header">CONDITION</th>
+                        <th rowspan="2" class="green-header">COLLECTED</th>
+                        <th rowspan="2">COLLECTED TOTAL</th>
+                        <th rowspan="2" class="green-header">SOLD</th>
+                        <th rowspan="2">SELL TO QUOTA</th>
+                        <th rowspan="2">OVERTIME</th>
+                        <th rowspan="2">3 DAY AVG</th>
+                    </tr>
+                    <tr>
+                        <th style="font-size:9px;">MIN | AVG | MAX</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td rowspan="3">1</td>
+                        <td rowspan="3">130</td>
+                        <td rowspan="3" class="bg-roll-red">1.00</td>
+                        <td>Min | 182</td>
+                        <td rowspan="3">0.63</td>
+                        <td><select class="table-select"><option>Adamance</option></select></td>
+                        <td>Clear</td>
+                        <td><input class="table-input" value="120"></td>
+                        <td rowspan="3">450</td>
+                        <td rowspan="3" class="text-green">300</td>
+                        <td rowspan="3">-170</td>
+                        <td rowspan="3" style="font-weight:bold;">19</td>
+                        <td rowspan="3">150</td>
+                    </tr>
+                    <tr>
+                        <td>Avg | 236</td>
+                        <td><select class="table-select"><option>Adamance</option></select></td>
+                        <td>Foggy</td>
+                        <td><input class="table-input" value="150"></td>
+                    </tr>
+                    <tr>
+                        <td>Max | 289</td>
+                        <td><select class="table-select"><option>Adamance</option></select></td>
+                        <td>Clear</td>
+                        <td><input class="table-input" value="180"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="pane-museum" class="tab-pane">
+        <h2 class="tracker-header">Lethal Company Item Tracker</h2>
+        
+        <div class="tracker-grid">
+            <div class="tracker-item" onclick="toggleItem(this)">🛑</div> <div class="tracker-item" onclick="toggleItem(this)">⚠️</div> <div class="tracker-item" onclick="toggleItem(this)">🔦</div> <div class="tracker-item" onclick="toggleItem(this)">🔋</div> <div class="tracker-item" onclick="toggleItem(this)">🚜</div> <div class="tracker-item" onclick="toggleItem(this)">🗝️</div> <div class="tracker-item" onclick="toggleItem(this)">🧴</div> <div class="tracker-item" onclick="toggleItem(this)">🔔</div> <div class="tracker-item" onclick="toggleItem(this)">🕰️</div> <div class="tracker-item" onclick="toggleItem(this)">🏮</div> <div class="tracker-item" onclick="toggleItem(this)">🦆</div> <div class="tracker-item" onclick="toggleItem(this)">🤡</div> <div class="tracker-item" onclick="toggleItem(this)">📢</div> <div class="tracker-item" onclick="toggleItem(this)">🧼</div> <div class="tracker-item" onclick="toggleItem(this)">☕</div> <div class="tracker-item" onclick="toggleItem(this)">🎭</div> <div class="tracker-item" onclick="toggleItem(this)">😱</div> <div class="tracker-item" onclick="toggleItem(this)">🦷</div> <div class="tracker-item" onclick="toggleItem(this)">💍</div> <div class="tracker-item" onclick="toggleItem(this)">🎮</div> <div class="tracker-item" onclick="toggleItem(this)">📻</div> <div class="tracker-item" onclick="toggleItem(this)">🎲</div> <div class="tracker-item" onclick="toggleItem(this)">📱</div> <div class="tracker-item" onclick="toggleItem(this)">🧸</div> <div class="tracker-item" onclick="toggleItem(this)">🥒</div> <div class="tracker-item" onclick="toggleItem(this)">⚜️</div> <div class="tracker-item" onclick="toggleItem(this)">👓</div> <div class="tracker-item" onclick="toggleItem(this)">🐠</div> <div class="tracker-item" onclick="toggleItem(this)">🎁</div> <div class="tracker-item" onclick="toggleItem(this)">💡</div> <div class="tracker-item" onclick="toggleItem(this)">🧯</div> <div class="tracker-item" onclick="toggleItem(this)">🥫</div> </div>
+
+        <div class="reset-container">
+            <button class="btn btn-reset" onclick="resetTracker()">Reset</button>
+        </div>
+    </div>
+
+    <div id="pane-players" class="tab-pane">
+        <h3>Current Squad</h3>
+        <ul>
+            <li>Player 1 (Host)</li>
+            <li>Player 2</li>
+            <li>Player 3</li>
+            <li>Player 4</li>
+        </ul>
+    </div>
+
+</div>
+
+</body>
+</html>

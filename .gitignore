@@ -1,0 +1,21 @@
+# --- Python / Backend ---
+backend/venv/
+backend/env/
+backend/__pycache__/
+backend/*.sqlite3
+backend/media/
+*.pyc
+
+# --- Node / Frontend ---
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.env.local
+frontend/.DS_Store
+package-lock.json # Иногда его оставляют, но если проект учебный, можно и оставить
+
+# --- System ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
