@@ -22,28 +22,7 @@ export default function Home({ user, setUser }) {
       } else {
         alert("Login failed: " + (data.error || "Check credentials"));
       }
-    } catch (e) { alert("Server not responding. Wait 30s for Render to wake up."); }
-  };
-
-  const handleRegister = async (username, password) => {
-    try {
-      const res = await fetch(`${API_BASE}/api/users/register/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ username, password }),
-      });
-      if (res.ok) {
-        alert("Account created!");
-        setView("login");
-      } else { alert("Registration failed. Name might be taken."); }
-    } catch (e) { alert("Registration server error."); }
-  };
-
-  const handleLogout = async () => {
-      await fetch(`${API_BASE}/api/users/logout/`, { method: "POST", credentials: "include" });
-      setUser(null);
-      window.location.reload();
+    } catch (e) { alert("Server not responding."); }
   };
 
   const createRoom = async (version, code) => {
@@ -67,19 +46,45 @@ export default function Home({ user, setUser }) {
       const inputCode = document.getElementById('join-code').value;
       if (!inputCode) return;
       try {
+          // ИСПРАВЛЕНО: Добавлены credentials: "include"
           const res = await fetch(`${API_BASE}/api/rooms/code/${inputCode}/`, {
+              method: "GET",
+              headers: { "Content-Type": "application/json" },
               credentials: "include"
           });
           const data = await res.json();
           if (res.ok) {
               navigate(`/room/${data.id}`, { state: { code: data.code, version: data.gameVersion } });
           } else {
-              alert(data.detail || "Room not found");
+              // Теперь мы увидим реальную причину ошибки
+              alert("Link failed: " + (data.detail || "Room not found or unauthorized"));
           }
-      } catch (e) { alert("Signal lost. Check your connection."); }
+      } catch (e) { 
+          alert("Signal lost. Check connection to the Terminal."); 
+      }
   }
 
-  // ЭКРАНЫ ДЛЯ НЕАВТОРИЗОВАННЫХ
+  const handleRegister = async (username, password) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/users/register/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ username, password }),
+      });
+      if (res.ok) {
+        alert("Account created!");
+        setView("login");
+      } else { alert("Registration failed."); }
+    } catch (e) { console.error(e); }
+  };
+
+  const handleLogout = async () => {
+      await fetch(`${API_BASE}/api/users/logout/`, { method: "POST", credentials: "include" });
+      setUser(null);
+      window.location.reload();
+  };
+
   if (!user) {
       if (view === 'register') {
           return (
@@ -89,7 +94,7 @@ export default function Home({ user, setUser }) {
                     <h2>Register</h2>
                     <form onSubmit={(e) => {
                         e.preventDefault();
-                        handleRegister(e.target.reg_user.value, e.target.reg_pass.value);
+                        handleRegister(e.target.elements.reg_user.value, e.target.elements.reg_pass.value);
                     }}>
                         <input name="reg_user" className="input" placeholder="Username" />
                         <input name="reg_pass" className="input" placeholder="Password" type="password" />
@@ -119,7 +124,6 @@ export default function Home({ user, setUser }) {
       );
   }
 
-  // ЭКРАН СОЗДАНИЯ КОМНАТЫ (Был пропущен)
   if (view === "create") {
       return (
         <div className="screen" style={{display:'block'}}>
@@ -128,7 +132,7 @@ export default function Home({ user, setUser }) {
                 <label>Game Version:</label>
                 <select id="ver" className="input"><option>1.6.1</option><option>1.6.2</option></select>
                 <label>Room Code:</label>
-                <input id="code" className="input" placeholder="Optional custom code" />
+                <input id="code" className="input" placeholder="Optional code" />
                 <button className="btn" onClick={() => {
                     const ver = document.getElementById('ver').value;
                     const code = document.getElementById('code').value || Math.random().toString(36).substr(2,4).toUpperCase();
@@ -140,13 +144,12 @@ export default function Home({ user, setUser }) {
       )
   }
 
-  // ЭКРАН ВХОДА В КОМНАТУ (Был пропущен)
   if (view === "join") {
       return (
         <div className="screen" style={{display:'block'}}>
             <h1 className="logo small">Join Room</h1>
             <div className="menu">
-                <input id="join-code" className="input" placeholder="Enter 4-character code" />
+                <input id="join-code" className="input" placeholder="Enter Code" />
                 <button className="btn" onClick={joinRoom}>Establish Link</button>
                 <button className="btn" onClick={() => setView("menu")}>Cancel</button>
             </div>
@@ -154,7 +157,6 @@ export default function Home({ user, setUser }) {
       )
   }
 
-  // ГЛАВНОЕ МЕНЮ
   return (
     <div className="screen" style={{display:'block'}}>
       <h1 className="logo small" style={{borderBottom: '1px solid #f7a85d'}}>

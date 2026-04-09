@@ -7,21 +7,20 @@ from rest_framework import status
 
 from .services import RoomService
 from .models import Room
-
+from core.auth import CsrfExemptSessionAuthentication # Импортируем наш обход CSRF
 
 class RoomCreateView(APIView):
     permission_classes = [IsAuthenticated]
+    authentication_classes = [CsrfExemptSessionAuthentication] # Добавлено
 
     def post(self, request):
         service = RoomService()
         data = request.data
-
         dto = service.create_room(
             owner=request.user,
             game_version=data.get("gameVersion"),
             code=data.get("code"),
         )
-
         return Response({
             "id": dto.id,
             "code": dto.code,
@@ -30,6 +29,7 @@ class RoomCreateView(APIView):
     
 class RoomDetailByCodeView(APIView):
     permission_classes = [IsAuthenticated]
+    authentication_classes = [CsrfExemptSessionAuthentication] # Добавлено
 
     def get(self, request, code):
         try:
