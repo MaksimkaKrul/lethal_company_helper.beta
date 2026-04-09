@@ -25,6 +25,27 @@ export default function Home({ user, setUser }) {
     } catch (e) { alert("Server not responding. Wait 30s for Render to wake up."); }
   };
 
+  const handleRegister = async (username, password) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/users/register/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ username, password }),
+      });
+      if (res.ok) {
+        alert("Account created!");
+        setView("login");
+      } else { alert("Registration failed. Name might be taken."); }
+    } catch (e) { alert("Registration server error."); }
+  };
+
+  const handleLogout = async () => {
+      await fetch(`${API_BASE}/api/users/logout/`, { method: "POST", credentials: "include" });
+      setUser(null);
+      window.location.reload();
+  };
+
   const createRoom = async (version, code) => {
     try {
       const res = await fetch(`${API_BASE}/api/rooms/`, {
@@ -58,13 +79,7 @@ export default function Home({ user, setUser }) {
       } catch (e) { alert("Signal lost. Check your connection."); }
   }
 
-  // UI (Твой без изменений, только исправил handleLogout для надежности)
-  const handleLogout = async () => {
-      await fetch(`${API_BASE}/api/users/logout/`, { method: "POST", credentials: "include" });
-      setUser(null);
-      window.location.reload();
-  };
-
+  // ЭКРАНЫ ДЛЯ НЕАВТОРИЗОВАННЫХ
   if (!user) {
       if (view === 'register') {
           return (
@@ -74,9 +89,7 @@ export default function Home({ user, setUser }) {
                     <h2>Register</h2>
                     <form onSubmit={(e) => {
                         e.preventDefault();
-                        const u = e.target.elements.reg_user.value;
-                        const p = e.target.elements.reg_pass.value;
-                        handleRegister(u, p);
+                        handleRegister(e.target.reg_user.value, e.target.reg_pass.value);
                     }}>
                         <input name="reg_user" className="input" placeholder="Username" />
                         <input name="reg_pass" className="input" placeholder="Password" type="password" />
@@ -106,24 +119,47 @@ export default function Home({ user, setUser }) {
       );
   }
 
-  const handleRegister = async (username, password) => {
-    try {
-      const res = await fetch(`${API_BASE}/api/users/register/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ username, password }),
-      });
-      if (res.ok) {
-        alert("Account created!");
-        setView("login");
-      } else { alert("Registration failed. Name might be taken."); }
-    } catch (e) { alert("Registration server error."); }
-  };
+  // ЭКРАН СОЗДАНИЯ КОМНАТЫ (Был пропущен)
+  if (view === "create") {
+      return (
+        <div className="screen" style={{display:'block'}}>
+            <h1 className="logo small">Create Room</h1>
+            <div className="menu" style={{width: 350}}>
+                <label>Game Version:</label>
+                <select id="ver" className="input"><option>1.6.1</option><option>1.6.2</option></select>
+                <label>Room Code:</label>
+                <input id="code" className="input" placeholder="Optional custom code" />
+                <button className="btn" onClick={() => {
+                    const ver = document.getElementById('ver').value;
+                    const code = document.getElementById('code').value || Math.random().toString(36).substr(2,4).toUpperCase();
+                    createRoom(ver, code);
+                }}>Confirm & Launch</button>
+                <button className="btn" onClick={() => setView("menu")}>Cancel</button>
+            </div>
+        </div>
+      )
+  }
 
+  // ЭКРАН ВХОДА В КОМНАТУ (Был пропущен)
+  if (view === "join") {
+      return (
+        <div className="screen" style={{display:'block'}}>
+            <h1 className="logo small">Join Room</h1>
+            <div className="menu">
+                <input id="join-code" className="input" placeholder="Enter 4-character code" />
+                <button className="btn" onClick={joinRoom}>Establish Link</button>
+                <button className="btn" onClick={() => setView("menu")}>Cancel</button>
+            </div>
+        </div>
+      )
+  }
+
+  // ГЛАВНОЕ МЕНЮ
   return (
     <div className="screen" style={{display:'block'}}>
-      <h1 className="logo small" style={{borderBottom: '1px solid #f7a85d'}}>Lethal Company <span style={{fontSize:14, color:'#666'}}>Speedrun Helper</span></h1>
+      <h1 className="logo small" style={{borderBottom: '1px solid #f7a85d'}}>
+        Lethal Company <span style={{fontSize:14, color:'#666'}}>Speedrun Helper</span>
+      </h1>
       <div style={{display:'flex', height:'80vh'}}>
         <div style={{width:200, borderRight:'1px solid #333', padding:10, display:'flex', flexDirection:'column', gap:10}}>
             <div style={{textAlign:'center', color:'#fff', marginBottom:10}}>User: <b>{user}</b></div>
@@ -134,7 +170,10 @@ export default function Home({ user, setUser }) {
             <button className="btn" onClick={() => setView("join")}>Join Room</button>
             <button className="btn" onClick={() => navigate("/forum")}>Comms (Forum)</button>
         </div>
-        <div style={{flex:1, padding:20}}><h2>Updates</h2><p style={{color:'#888'}}>Welcome back, employee {user}.</p></div>
+        <div style={{flex:1, padding:20}}>
+            <h2>Updates</h2>
+            <p style={{color:'#888'}}>Welcome back, employee {user}. All systems nominal.</p>
+        </div>
       </div>
     </div>
   );
