@@ -31,22 +31,18 @@ export default function Room({ user }) {
     const roomInfo = location.state || { code: "???", version: "?" };
 
     useEffect(() => {
-        // Логика определения URL для WebSocket
         let ws_url;
         if (import.meta.env.VITE_API_URL) {
-            // Если есть API_URL (прод), меняем http на ws или https на wss
+            // В интернете используем wss:// (безопасный сокет)
             ws_url = import.meta.env.VITE_API_URL.replace(/^http/, 'ws');
         } else {
-            // Если локалка
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws_url = `${protocol}//${window.location.host}`;
+            ws_url = `ws://${window.location.host}`;
         }
 
         const socket = new WebSocket(`${ws_url}/ws/rooms/${roomId}/`);
         socketRef.current = socket;
 
-        socket.onopen = () => console.log("WS Connected to", ws_url);
-        
+        socket.onopen = () => console.log("Comms established.");
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
             if (data.type === "UPDATE_QUOTAS") setQuotas(data.content);
@@ -57,7 +53,6 @@ export default function Room({ user }) {
         return () => socket.close();
     }, [roomId]);
 
-    // ... Остальные твои функции handleUpdateQuota, addQuota и т.д. без изменений
     const sendQuotasUpdate = (newQuotas) => {
         setQuotas(newQuotas);
         if (socketRef.current?.readyState === WebSocket.OPEN) {
@@ -97,26 +92,16 @@ export default function Room({ user }) {
     };
 
     const handleExport = () => {
-        const dataToSave = {
-            date: new Date().toISOString(),
-            roomCode: roomInfo.code,
-            quotas: quotas,
-            museum: museumItems
-        };
-        const jsonString = JSON.stringify(dataToSave, null, 2);
-        const blob = new Blob([jsonString], { type: "application/json" });
+        const dataToSave = { date: new Date().toISOString(), roomCode: roomInfo.code, quotas, museum: museumItems };
+        const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `LethalSave_${roomInfo.code}_${new Date().toISOString().slice(0,10)}.json`;
-        document.body.appendChild(link);
+        link.download = `LethalSave_${roomInfo.code}.json`;
         link.click();
-        document.body.removeChild(link);
     };
 
-    const handleImportClick = () => {
-        fileInputRef.current.click();
-    };
+    const handleImportClick = () => fileInputRef.current.click();
 
     const handleFileChange = (event) => {
         const file = event.target.files[0];
@@ -125,53 +110,34 @@ export default function Room({ user }) {
         reader.onload = (e) => {
             try {
                 const data = JSON.parse(e.target.result);
-                if (data.quotas && Array.isArray(data.quotas)) {
-                    if (confirm("Load this save file? It will overwrite current data for EVERYONE in the room.")) {
-                        sendQuotasUpdate(data.quotas);
-                        if (data.museum) sendMuseumUpdate(data.museum);
-                        alert("Save loaded successfully!");
-                    }
-                } else {
-                    alert("Invalid save file format.");
+                if (data.quotas) {
+                    sendQuotasUpdate(data.quotas);
+                    if (data.museum) sendMuseumUpdate(data.museum);
                 }
-            } catch (err) {
-                console.error(err);
-                alert("Error reading file.");
-            }
+            } catch (err) { alert("Invalid save file."); }
         };
         reader.readAsText(file);
-        event.target.value = ''; 
     };
 
     return (
-        <div className="screen" style={{display:'block', overflowX: 'hidden'}}>
+        <div className="screen" style={{display:'block'}}>
             <input type="file" ref={fileInputRef} style={{display: 'none'}} accept=".json" onChange={handleFileChange} />
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 10px', background: '#000', borderBottom: '1px solid #333'}}>
                 <div style={{display:'flex', alignItems:'center', gap: 15}}>
                     <h1 className="logo small" style={{margin:0, fontSize: '16px'}}>Room {roomInfo.code}</h1>
-                    <div style={{display:'flex', gap: 5}}>
-                        <button className="btn" style={{padding:'4px 8px', fontSize:10, background: '#4b6e32', color:'#fff'}} onClick={handleExport}>⬇ SAVE</button>
-                        <button className="btn" style={{padding:'4px 8px', fontSize:10, background: '#e69138', color:'#000'}} onClick={handleImportClick}>⬆ LOAD</button>
-                    </div>
+                    <button className="btn" style={{padding:'4px 8px', fontSize:10, background: '#4b6e32', color:'#fff'}} onClick={handleExport}>SAVE</button>
+                    <button className="btn" style={{padding:'4px 8px', fontSize:10, background: '#e69138', color:'#000'}} onClick={handleImportClick}>LOAD</button>
                 </div>
-                <div style={{display:'flex', alignItems:'center', gap: 10}}>
-                    <div style={{display:'flex', alignItems:'center', gap: 5}}>
-                        <label style={{fontSize: 10, color: '#888'}}>ZOOM:</label>
-                        <input type="range" min="0.5" max="1.5" step="0.1" value={scale} onChange={(e) => setScale(parseFloat(e.target.value))}/>
-                    </div>
-                    <button className="btn" style={{padding:'2px 8px', fontSize:10}} onClick={() => navigate("/")}>EXIT</button>
-                </div>
+                <button className="btn" style={{padding:'2px 8px', fontSize:10}} onClick={() => navigate("/")}>EXIT</button>
             </div>
-            <div style={{transform: `scale(${scale})`, transformOrigin: 'top center', transition: 'transform 0.2s', width: '100%'}}>
+            <div style={{transform: `scale(${scale})`, transformOrigin: 'top center', transition: 'transform 0.2s'}}>
                 <div className="tabs">
                     <button className={`tab ${activeTab === 'Quota' ? 'active' : ''}`} onClick={() => setActiveTab('Quota')}>Quota</button>
                     <button className={`tab ${activeTab === 'Museum' ? 'active' : ''}`} onClick={() => setActiveTab('Museum')}>Museum</button>
                     <button className={`tab ${activeTab === 'Players' ? 'active' : ''}`} onClick={() => setActiveTab('Players')}>Players</button>
                 </div>
                 <div className="tab-pane active" style={{display: 'block'}}>
-                    {activeTab === 'Quota' && (
-                        <QuotaTable quotas={quotas} onUpdate={handleUpdateQuota} onAdd={addQuota} onDelete={deleteQuota} />
-                    )}
+                    {activeTab === 'Quota' && <QuotaTable quotas={quotas} onUpdate={handleUpdateQuota} onAdd={addQuota} onDelete={deleteQuota} />}
                     {activeTab === 'Museum' && <Museum collectedItems={museumItems} onUpdate={sendMuseumUpdate} />}
                     {activeTab === 'Players' && <PlayersList players={players} currentUser={user} onSetEmoji={sendEmojiUpdate} />}
                 </div>

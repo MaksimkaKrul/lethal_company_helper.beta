@@ -15,7 +15,7 @@ export default function Forum({ user }) {
     const fetchThreads = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/api/forum/`);
+            const res = await fetch(`${API_BASE}/api/forum/`, { credentials: "include" });
             if (res.ok) {
                 const data = await res.json();
                 setThreads(data);
@@ -27,7 +27,7 @@ export default function Forum({ user }) {
     const fetchThreadDetails = async (id) => {
         setLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/api/forum/${id}/`);
+            const res = await fetch(`${API_BASE}/api/forum/${id}/`, { credentials: "include" });
             if (res.ok) {
                 const data = await res.json();
                 setCurrentThread(data);
@@ -47,6 +47,7 @@ export default function Forum({ user }) {
             const res = await fetch(`${API_BASE}/api/forum/`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify({ title: newThreadTitle })
             });
             if (res.ok) {
@@ -62,6 +63,7 @@ export default function Forum({ user }) {
             const res = await fetch(`${API_BASE}/api/forum/${currentThread.id}/messages/`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify({ content: newMessage })
             });
             if (res.ok) {
@@ -71,29 +73,20 @@ export default function Forum({ user }) {
         } catch (e) { console.error(e); }
     };
 
-    // UI остается твоим...
     return (
         <div className="screen" style={{display:'block', padding: '20px'}}>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'1px solid #f7a85d', paddingBottom:10, marginBottom:20}}>
-                <h1 className="logo small" style={{margin:0}}>Comms Terminal (Forum)</h1>
-                <button className="btn" onClick={() => {
-                    if (view === "THREAD") {
-                        setView("LIST");
-                        fetchThreads();
-                    } else {
-                        navigate("/");
-                    }
-                }}>
-                    {view === "THREAD" ? "Back to List" : "Exit Terminal"}
+                <h1 className="logo small" style={{margin:0}}>Comms Terminal</h1>
+                <button className="btn" onClick={() => view === "THREAD" ? setView("LIST") : navigate("/")}>
+                    {view === "THREAD" ? "Back" : "Exit"}
                 </button>
             </div>
-            {/* ... Весь остальной UI ... */}
             {view === "LIST" && (
                 <div>
                    <div style={{background:'#111', padding:15, border:'1px solid #333', marginBottom:20}}>
-                        <h3 style={{marginTop:0}}>New Frequency</h3>
+                        <h3>New Transmission</h3>
                         <div style={{display:'flex', gap:10}}>
-                            <input className="input" style={{flex:1}} placeholder="Thread Title..." value={newThreadTitle} onChange={e => setNewThreadTitle(e.target.value)}/>
+                            <input className="input" style={{flex:1}} placeholder="Frequency Title..." value={newThreadTitle} onChange={e => setNewThreadTitle(e.target.value)}/>
                             <button className="btn" onClick={createThread}>Broadcast</button>
                         </div>
                     </div>
@@ -101,9 +94,7 @@ export default function Forum({ user }) {
                         {threads.map(t => (
                             <div key={t.id} onClick={() => fetchThreadDetails(t.id)} style={{border: '1px solid #444', padding: '15px', cursor: 'pointer', background: '#000'}}>
                                 <div style={{fontSize:18, fontWeight:'bold', color:'#f7a85d'}}>{t.title}</div>
-                                <div style={{fontSize:12, color:'#666'}}>
-                                    Signal by: {t.author_name} | {new Date(t.created_at).toLocaleString()}
-                                </div>
+                                <div style={{fontSize:12, color:'#666'}}>Signal: {t.author_name} | {new Date(t.created_at).toLocaleTimeString()}</div>
                             </div>
                         ))}
                     </div>

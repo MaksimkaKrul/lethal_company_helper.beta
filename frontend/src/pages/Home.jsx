@@ -9,16 +9,18 @@ export default function Home({ user, setUser }) {
 
   const handleLogin = async (username, password) => {
     try {
-      const res = await fetch(`${API_BASE}/api/users/login/`, {
+      const res = await fetch(`${API_BASE}/api/users/login//`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // Передаем куки
         body: JSON.stringify({ username, password }),
       });
       if (res.ok) {
-        setUser(username);
+        const data = await res.json();
+        setUser(data.username);
         setView("menu");
       } else {
-        alert("Login failed");
+        alert("Login failed. Check credentials.");
       }
     } catch (e) { console.error(e); }
   };
@@ -39,18 +41,18 @@ export default function Home({ user, setUser }) {
         alert("Account created! Now please login.");
         setView("login");
       } else {
-        alert(JSON.stringify(data));
+        alert(data.detail || "Registration error");
       }
-    } catch (e) { 
-        console.error(e); 
-        alert("Registration error");
-    }
+    } catch (e) { console.error(e); }
   };
 
   const handleLogout = async () => {
-      await fetch(`${API_BASE}/api/users/logout/`, { method: "POST" });
+      await fetch(`${API_BASE}/api/users/logout/`, { 
+          method: "POST",
+          credentials: "include" 
+      });
       setUser(null);
-      setView("login");
+      window.location.reload();
   };
 
   const createRoom = async (version, code) => {
@@ -58,11 +60,14 @@ export default function Home({ user, setUser }) {
       const res = await fetch(`${API_BASE}/api/rooms/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // Обязательно для авторизованных действий
         body: JSON.stringify({ gameVersion: version, code }),
       });
       if (res.ok) {
         const data = await res.json();
         navigate(`/room/${data.id}`, { state: { code: data.code, version: data.gameVersion } });
+      } else {
+          alert("Error: Only logged in employees can create rooms.");
       }
     } catch (e) { console.error(e); }
   };
@@ -71,7 +76,9 @@ export default function Home({ user, setUser }) {
       const inputCode = document.getElementById('join-code').value;
       if (!inputCode) return;
       try {
-          const res = await fetch(`${API_BASE}/api/rooms/code/${inputCode}/`);
+          const res = await fetch(`${API_BASE}/api/rooms/code/${inputCode}/`, {
+              credentials: "include"
+          });
           const data = await res.json();
           if (res.ok) {
               navigate(`/room/${data.id}`, { state: { code: data.code, version: data.gameVersion } });
@@ -84,7 +91,6 @@ export default function Home({ user, setUser }) {
       }
   }
 
-  // Оставляю твой UI без изменений...
   if (!user) {
       if (view === 'register') {
           return (
@@ -94,9 +100,7 @@ export default function Home({ user, setUser }) {
                     <h2>Register</h2>
                     <form onSubmit={(e) => {
                         e.preventDefault();
-                        const user = e.target.elements.reg_user.value;
-                        const pass = e.target.elements.reg_pass.value;
-                        handleRegister(user, pass);
+                        handleRegister(e.target.reg_user.value, e.target.reg_pass.value);
                     }}>
                         <input name="reg_user" className="input" placeholder="Username" />
                         <input name="reg_pass" className="input" placeholder="Password" type="password" />
@@ -134,17 +138,16 @@ export default function Home({ user, setUser }) {
       <div style={{display:'flex', height:'80vh'}}>
         <div style={{width:200, borderRight:'1px solid #333', padding:10, display:'flex', flexDirection:'column', gap:10}}>
             <div style={{textAlign:'center', color:'#fff', marginBottom:10}}>User: <b>{user}</b></div>
-            <button className="btn" onClick={() => navigate("/profile")} style={{marginBottom: '5px'}}>My Profile</button>
+            <button className="btn" onClick={() => navigate("/profile")}>My Profile</button>
             <button className="btn" onClick={handleLogout}>Logout</button>
             <div style={{height:20}}></div>
             <button className="btn" onClick={() => setView("create")}>Create Room</button>
             <button className="btn" onClick={() => setView("join")}>Join Room</button>
-            <div style={{height:10}}></div>
             <button className="btn" onClick={() => navigate("/forum")}>Comms (Forum)</button>
         </div>
         <div style={{flex:1, padding:20}}>
             <h2>Updates</h2>
-            <p style={{color:'#888'}}>Welcome back, {user}.</p>
+            <p style={{color:'#888'}}>Welcome back, employee {user}.</p>
         </div>
       </div>
     </div>
