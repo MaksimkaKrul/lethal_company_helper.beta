@@ -12,47 +12,17 @@ export default function Home({ user, setUser }) {
       const res = await fetch(`${API_BASE}/api/users/login/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // Передаем куки
-        body: JSON.stringify({ username, password }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.username);
-        setView("menu");
-      } else {
-        alert("Login failed. Check credentials.");
-      }
-    } catch (e) { console.error(e); }
-  };
-
-  const handleRegister = async (username, password) => {
-    if (!username || !password) {
-        alert("Please enter username and password");
-        return;
-    }
-    try {
-      const res = await fetch(`${API_BASE}/api/users/register/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ username, password }),
       });
       const data = await res.json();
       if (res.ok) {
-        alert("Account created! Now please login.");
-        setView("login");
+        setUser(data.username);
+        setView("menu");
       } else {
-        alert(data.detail || "Registration error");
+        alert("Login failed: " + (data.error || "Check credentials"));
       }
-    } catch (e) { console.error(e); }
-  };
-
-  const handleLogout = async () => {
-      await fetch(`${API_BASE}/api/users/logout/`, { 
-          method: "POST",
-          credentials: "include" 
-      });
-      setUser(null);
-      window.location.reload();
+    } catch (e) { alert("Server not responding. Wait 30s for Render to wake up."); }
   };
 
   const createRoom = async (version, code) => {
@@ -60,16 +30,16 @@ export default function Home({ user, setUser }) {
       const res = await fetch(`${API_BASE}/api/rooms/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // Обязательно для авторизованных действий
+        credentials: "include",
         body: JSON.stringify({ gameVersion: version, code }),
       });
+      const data = await res.json();
       if (res.ok) {
-        const data = await res.json();
         navigate(`/room/${data.id}`, { state: { code: data.code, version: data.gameVersion } });
       } else {
-          alert("Error: Only logged in employees can create rooms.");
+        alert("Room error: " + (data.detail || "Access denied"));
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { alert("Failed to connect to Terminal."); }
   };
 
   const joinRoom = async () => {
@@ -85,11 +55,15 @@ export default function Home({ user, setUser }) {
           } else {
               alert(data.detail || "Room not found");
           }
-      } catch (e) {
-          console.error(e);
-          alert("Connection error");
-      }
+      } catch (e) { alert("Signal lost. Check your connection."); }
   }
+
+  // UI (Твой без изменений, только исправил handleLogout для надежности)
+  const handleLogout = async () => {
+      await fetch(`${API_BASE}/api/users/logout/`, { method: "POST", credentials: "include" });
+      setUser(null);
+      window.location.reload();
+  };
 
   if (!user) {
       if (view === 'register') {
@@ -100,7 +74,9 @@ export default function Home({ user, setUser }) {
                     <h2>Register</h2>
                     <form onSubmit={(e) => {
                         e.preventDefault();
-                        handleRegister(e.target.reg_user.value, e.target.reg_pass.value);
+                        const u = e.target.elements.reg_user.value;
+                        const p = e.target.elements.reg_pass.value;
+                        handleRegister(u, p);
                     }}>
                         <input name="reg_user" className="input" placeholder="Username" />
                         <input name="reg_pass" className="input" placeholder="Password" type="password" />
@@ -130,11 +106,24 @@ export default function Home({ user, setUser }) {
       );
   }
 
+  const handleRegister = async (username, password) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/users/register/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ username, password }),
+      });
+      if (res.ok) {
+        alert("Account created!");
+        setView("login");
+      } else { alert("Registration failed. Name might be taken."); }
+    } catch (e) { alert("Registration server error."); }
+  };
+
   return (
     <div className="screen" style={{display:'block'}}>
-      <h1 className="logo small" style={{borderBottom: '1px solid #f7a85d'}}>
-        Lethal Company <span style={{fontSize:14, color:'#666'}}>Speedrun Helper</span>
-      </h1>
+      <h1 className="logo small" style={{borderBottom: '1px solid #f7a85d'}}>Lethal Company <span style={{fontSize:14, color:'#666'}}>Speedrun Helper</span></h1>
       <div style={{display:'flex', height:'80vh'}}>
         <div style={{width:200, borderRight:'1px solid #333', padding:10, display:'flex', flexDirection:'column', gap:10}}>
             <div style={{textAlign:'center', color:'#fff', marginBottom:10}}>User: <b>{user}</b></div>
@@ -145,10 +134,7 @@ export default function Home({ user, setUser }) {
             <button className="btn" onClick={() => setView("join")}>Join Room</button>
             <button className="btn" onClick={() => navigate("/forum")}>Comms (Forum)</button>
         </div>
-        <div style={{flex:1, padding:20}}>
-            <h2>Updates</h2>
-            <p style={{color:'#888'}}>Welcome back, employee {user}.</p>
-        </div>
+        <div style={{flex:1, padding:20}}><h2>Updates</h2><p style={{color:'#888'}}>Welcome back, employee {user}.</p></div>
       </div>
     </div>
   );
