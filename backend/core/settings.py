@@ -6,9 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-me')
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-# Обязательно для работы за прокси Render (чтобы Django видел HTTPS)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
 INSTALLED_APPS = [
@@ -73,19 +71,15 @@ STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer"
-    }
-}
+CHANNEL_LAYERS = { "default": { "BACKEND": "channels.layers.InMemoryChannelLayer" } }
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "core.auth.CsrfExemptSessionAuthentication", # Твой класс для обхода CSRF
+        "core.auth.CsrfExemptSessionAuthentication",
     ],
 }
 
-# --- КРОСС-ДОМЕННАЯ БЕЗОПАСНОСТЬ (Netlify + Render) ---
+# --- CORS & CSRF ---
 CORS_ALLOWED_ORIGINS = ["http://localhost:5173"]
 FRONTEND_URL = os.environ.get('FRONTEND_URL')
 if FRONTEND_URL:
@@ -97,7 +91,8 @@ if FRONTEND_URL:
 
 CORS_ALLOW_CREDENTIALS = True
 
-# Настройки КУКИ (Критично для авторизации и сокетов)
+# --- COOKIE POLICY ---
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_COOKIE_SAMESITE = 'None'
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SAMESITE = 'None'

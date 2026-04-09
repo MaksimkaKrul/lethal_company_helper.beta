@@ -5,7 +5,6 @@ import Room from "./pages/Room";
 import Forum from "./pages/Forum";
 import Profile from "./pages/Profile";
 
-// Определяем базовый URL для API
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
 function App() {
@@ -18,8 +17,10 @@ function App() {
 
   const checkAuth = async () => {
     try {
-      // Используем API_BASE
-      const res = await fetch(`${API_BASE}/api/users/me/`);
+      // ИСПРАВЛЕНО: Добавлены credentials, чтобы сессия не слетала при обновлении
+      const res = await fetch(`${API_BASE}/api/users/me/`, {
+          credentials: "include" 
+      });
       if (res.ok) {
         const data = await res.json();
         setUser(data.username);
@@ -28,12 +29,13 @@ function App() {
       }
     } catch (e) {
       console.error("Auth check failed", e);
+      setUser(null);
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) return <div style={{color:'#f7a85d', padding:20}}>Loading system...</div>;
+  if (loading) return <div style={{color:'#f7a85d', padding:20}}>Authenticating with Terminal...</div>;
 
   return (
     <BrowserRouter>

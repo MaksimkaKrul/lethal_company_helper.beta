@@ -17,12 +17,12 @@ export default function Home({ user, setUser }) {
       });
       const data = await res.json();
       if (res.ok) {
-        setUser(data.username);
+        setUser(data.username || username);
         setView("menu");
       } else {
         alert("Login failed: " + (data.error || "Check credentials"));
       }
-    } catch (e) { alert("Server not responding."); }
+    } catch (e) { alert("Connection error. Terminal is likely booting up."); }
   };
 
   const createRoom = async (version, code) => {
@@ -37,16 +37,15 @@ export default function Home({ user, setUser }) {
       if (res.ok) {
         navigate(`/room/${data.id}`, { state: { code: data.code, version: data.gameVersion } });
       } else {
-        alert("Room error: " + (data.detail || "Access denied"));
+        alert("Terminal Refusal: " + (data.detail || "Authentication required"));
       }
-    } catch (e) { alert("Failed to connect to Terminal."); }
+    } catch (e) { alert("Failed to transmit room data."); }
   };
 
   const joinRoom = async () => {
       const inputCode = document.getElementById('join-code').value;
       if (!inputCode) return;
       try {
-          // ИСПРАВЛЕНО: Добавлены credentials: "include"
           const res = await fetch(`${API_BASE}/api/rooms/code/${inputCode}/`, {
               method: "GET",
               headers: { "Content-Type": "application/json" },
@@ -56,12 +55,9 @@ export default function Home({ user, setUser }) {
           if (res.ok) {
               navigate(`/room/${data.id}`, { state: { code: data.code, version: data.gameVersion } });
           } else {
-              // Теперь мы увидим реальную причину ошибки
-              alert("Link failed: " + (data.detail || "Room not found or unauthorized"));
+              alert("Link failed: " + (data.detail || "Room not found"));
           }
-      } catch (e) { 
-          alert("Signal lost. Check connection to the Terminal."); 
-      }
+      } catch (e) { alert("Signal lost. Check link frequency."); }
   }
 
   const handleRegister = async (username, password) => {
@@ -72,11 +68,14 @@ export default function Home({ user, setUser }) {
         credentials: "include",
         body: JSON.stringify({ username, password }),
       });
+      const data = await res.json();
       if (res.ok) {
-        alert("Account created!");
+        alert("Employee Record Created! Please login.");
         setView("login");
-      } else { alert("Registration failed."); }
-    } catch (e) { console.error(e); }
+      } else { 
+          alert("Registration Error: " + JSON.stringify(data)); 
+      }
+    } catch (e) { alert("Network error during registration."); }
   };
 
   const handleLogout = async () => {
@@ -94,7 +93,7 @@ export default function Home({ user, setUser }) {
                     <h2>Register</h2>
                     <form onSubmit={(e) => {
                         e.preventDefault();
-                        handleRegister(e.target.elements.reg_user.value, e.target.elements.reg_pass.value);
+                        handleRegister(e.target.reg_user.value, e.target.reg_pass.value);
                     }}>
                         <input name="reg_user" className="input" placeholder="Username" />
                         <input name="reg_pass" className="input" placeholder="Password" type="password" />
@@ -132,7 +131,7 @@ export default function Home({ user, setUser }) {
                 <label>Game Version:</label>
                 <select id="ver" className="input"><option>1.6.1</option><option>1.6.2</option></select>
                 <label>Room Code:</label>
-                <input id="code" className="input" placeholder="Optional code" />
+                <input id="code" className="input" placeholder="Optional custom code" />
                 <button className="btn" onClick={() => {
                     const ver = document.getElementById('ver').value;
                     const code = document.getElementById('code').value || Math.random().toString(36).substr(2,4).toUpperCase();
@@ -149,7 +148,7 @@ export default function Home({ user, setUser }) {
         <div className="screen" style={{display:'block'}}>
             <h1 className="logo small">Join Room</h1>
             <div className="menu">
-                <input id="join-code" className="input" placeholder="Enter Code" />
+                <input id="join-code" className="input" placeholder="Enter link code" />
                 <button className="btn" onClick={joinRoom}>Establish Link</button>
                 <button className="btn" onClick={() => setView("menu")}>Cancel</button>
             </div>
@@ -159,23 +158,18 @@ export default function Home({ user, setUser }) {
 
   return (
     <div className="screen" style={{display:'block'}}>
-      <h1 className="logo small" style={{borderBottom: '1px solid #f7a85d'}}>
-        Lethal Company <span style={{fontSize:14, color:'#666'}}>Speedrun Helper</span>
-      </h1>
+      <h1 className="logo small" style={{borderBottom: '1px solid #f7a85d'}}>Lethal Company <span style={{fontSize:14, color:'#666'}}>Speedrun Helper</span></h1>
       <div style={{display:'flex', height:'80vh'}}>
         <div style={{width:200, borderRight:'1px solid #333', padding:10, display:'flex', flexDirection:'column', gap:10}}>
-            <div style={{textAlign:'center', color:'#fff', marginBottom:10}}>User: <b>{user}</b></div>
-            <button className="btn" onClick={() => navigate("/profile")}>My Profile</button>
-            <button className="btn" onClick={handleLogout}>Logout</button>
+            <div style={{textAlign:'center', color:'#fff', marginBottom:10}}>Employee: <b>{user}</b></div>
+            <button className="btn" onClick={() => navigate("/profile")}>Record File (Profile)</button>
+            <button className="btn" onClick={handleLogout}>Clock Out</button>
             <div style={{height:20}}></div>
-            <button className="btn" onClick={() => setView("create")}>Create Room</button>
-            <button className="btn" onClick={() => setView("join")}>Join Room</button>
+            <button className="btn" onClick={() => setView("create")}>Initialize Room</button>
+            <button className="btn" onClick={() => setView("join")}>Link to Room</button>
             <button className="btn" onClick={() => navigate("/forum")}>Comms (Forum)</button>
         </div>
-        <div style={{flex:1, padding:20}}>
-            <h2>Updates</h2>
-            <p style={{color:'#888'}}>Welcome back, employee {user}. All systems nominal.</p>
-        </div>
+        <div style={{flex:1, padding:20}}><h2>Updates</h2><p style={{color:'#888'}}>System active. Welcome back, {user}.</p></div>
       </div>
     </div>
   );
