@@ -33,7 +33,6 @@ class RoomDetailByCodeView(APIView):
 
     def get(self, request, code):
         try:
-            # Ищем комнату по коду
             room = Room.objects.get(code=code)
             return Response({
                 "id": room.id,

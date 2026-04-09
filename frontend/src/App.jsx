@@ -5,6 +5,9 @@ import Room from "./pages/Room";
 import Forum from "./pages/Forum";
 import Profile from "./pages/Profile";
 
+// Определяем базовый URL для API
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -15,7 +18,8 @@ function App() {
 
   const checkAuth = async () => {
     try {
-      const res = await fetch("/api/users/me/");
+      // Используем API_BASE
+      const res = await fetch(`${API_BASE}/api/users/me/`);
       if (res.ok) {
         const data = await res.json();
         setUser(data.username);
@@ -36,19 +40,15 @@ function App() {
       <div className="app-container">
         <Routes>
           <Route path="/" element={<Home user={user} setUser={setUser} />} />
-
           <Route 
             path="/forum" 
             element={user ? <Forum user={user} /> : <Navigate to="/" />} 
           />
-          
           <Route path="/room/:roomId" element={<Room user={user} />} />
-
           <Route 
             path="/profile" 
             element={user ? <Profile user={user} /> : <Navigate to="/" />} 
           />
-          
         </Routes>
       </div>
     </BrowserRouter>

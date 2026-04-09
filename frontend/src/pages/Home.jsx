@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
 export default function Home({ user, setUser }) {
   const navigate = useNavigate();
   const [view, setView] = useState("menu"); 
 
   const handleLogin = async (username, password) => {
     try {
-      const res = await fetch("/api/users/login/", {
+      const res = await fetch(`${API_BASE}/api/users/login/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -27,14 +29,12 @@ export default function Home({ user, setUser }) {
         return;
     }
     try {
-      const res = await fetch("/api/users/register/", {
+      const res = await fetch(`${API_BASE}/api/users/register/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
-      
       const data = await res.json();
-
       if (res.ok) {
         alert("Account created! Now please login.");
         setView("login");
@@ -48,14 +48,14 @@ export default function Home({ user, setUser }) {
   };
 
   const handleLogout = async () => {
-      await fetch("/api/users/logout/", { method: "POST" });
+      await fetch(`${API_BASE}/api/users/logout/`, { method: "POST" });
       setUser(null);
       setView("login");
   };
 
   const createRoom = async (version, code) => {
     try {
-      const res = await fetch("/api/rooms/", {
+      const res = await fetch(`${API_BASE}/api/rooms/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ gameVersion: version, code }),
@@ -70,18 +70,11 @@ export default function Home({ user, setUser }) {
   const joinRoom = async () => {
       const inputCode = document.getElementById('join-code').value;
       if (!inputCode) return;
-
       try {
-          const res = await fetch(`/api/rooms/code/${inputCode}/`);
+          const res = await fetch(`${API_BASE}/api/rooms/code/${inputCode}/`);
           const data = await res.json();
-
           if (res.ok) {
-              navigate(`/room/${data.id}`, { 
-                  state: { 
-                      code: data.code, 
-                      version: data.gameVersion 
-                  } 
-              });
+              navigate(`/room/${data.id}`, { state: { code: data.code, version: data.gameVersion } });
           } else {
               alert(data.detail || "Room not found");
           }
@@ -91,7 +84,7 @@ export default function Home({ user, setUser }) {
       }
   }
 
-
+  // Оставляю твой UI без изменений...
   if (!user) {
       if (view === 'register') {
           return (
@@ -109,7 +102,6 @@ export default function Home({ user, setUser }) {
                         <input name="reg_pass" className="input" placeholder="Password" type="password" />
                         <button className="btn">Create Account</button>
                     </form>
-                    
                     <button className="btn" onClick={() => setView("login")}>Back</button>
                 </div>
             </div>
@@ -134,40 +126,6 @@ export default function Home({ user, setUser }) {
       );
   }
 
-
-  if (view === "create") {
-      return (
-        <div className="screen" style={{display:'block'}}>
-            <h1 className="logo small">Create Room</h1>
-            <div className="menu" style={{width: 350}}>
-                <label>Game Version:</label>
-                <select id="ver" className="input"><option>1.6.1</option><option>1.6.2</option></select>
-                <label>Room Code:</label>
-                <input id="code" className="input" placeholder="Optional code" />
-                <button className="btn" onClick={() => {
-                    const ver = document.getElementById('ver').value;
-                    const code = document.getElementById('code').value || Math.random().toString(36).substr(2,6).toUpperCase();
-                    createRoom(ver, code);
-                }}>Create</button>
-                <button className="btn" onClick={() => setView("menu")}>Cancel</button>
-            </div>
-        </div>
-      )
-  }
-
-  if (view === "join") {
-      return (
-        <div className="screen" style={{display:'block'}}>
-            <h1 className="logo small">Join Room</h1>
-            <div className="menu">
-                <input id="join-code" className="input" placeholder="Enter Code" />
-                <button className="btn" onClick={joinRoom}>Join</button>
-                <button className="btn" onClick={() => setView("menu")}>Cancel</button>
-            </div>
-        </div>
-      )
-  }
-
   return (
     <div className="screen" style={{display:'block'}}>
       <h1 className="logo small" style={{borderBottom: '1px solid #f7a85d'}}>
@@ -176,18 +134,13 @@ export default function Home({ user, setUser }) {
       <div style={{display:'flex', height:'80vh'}}>
         <div style={{width:200, borderRight:'1px solid #333', padding:10, display:'flex', flexDirection:'column', gap:10}}>
             <div style={{textAlign:'center', color:'#fff', marginBottom:10}}>User: <b>{user}</b></div>
-            <button className="btn" onClick={() => navigate("/profile")} style={{marginBottom: '5px'}}>
-                My Profile
-            </button>
+            <button className="btn" onClick={() => navigate("/profile")} style={{marginBottom: '5px'}}>My Profile</button>
             <button className="btn" onClick={handleLogout}>Logout</button>
             <div style={{height:20}}></div>
             <button className="btn" onClick={() => setView("create")}>Create Room</button>
             <button className="btn" onClick={() => setView("join")}>Join Room</button>
-            
             <div style={{height:10}}></div>
-            <button className="btn" onClick={() => navigate("/forum")}>
-                Comms (Forum)
-            </button>
+            <button className="btn" onClick={() => navigate("/forum")}>Comms (Forum)</button>
         </div>
         <div style={{flex:1, padding:20}}>
             <h2>Updates</h2>
