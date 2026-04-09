@@ -76,10 +76,11 @@ CHANNEL_LAYERS = { "default": { "BACKEND": "channels.layers.InMemoryChannelLayer
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "core.auth.CsrfExemptSessionAuthentication",
+        "rest_framework.authentication.SessionAuthentication", # Возвращаем стандартный для стабильности
     ],
 }
 
-# --- CORS & CSRF ---
+# --- КРОСС-ДОМЕННАЯ БЕЗОПАСНОСТЬ (Netlify + Render) ---
 CORS_ALLOWED_ORIGINS = ["http://localhost:5173"]
 FRONTEND_URL = os.environ.get('FRONTEND_URL')
 if FRONTEND_URL:
@@ -87,13 +88,14 @@ if FRONTEND_URL:
 
 CSRF_TRUSTED_ORIGINS = ["http://localhost:5173"]
 if FRONTEND_URL:
+    # ОЧЕНЬ ВАЖНО: Убедись, что тут нет лишнего слеша в конце в Render Env Vars
     CSRF_TRUSTED_ORIGINS.append(FRONTEND_URL)
 
 CORS_ALLOW_CREDENTIALS = True
 
-# --- COOKIE POLICY ---
-SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+# Настройки КУКИ
 SESSION_COOKIE_SAMESITE = 'None'
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SAMESITE = 'None'
 CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_HTTPONLY = True # Для безопасности
