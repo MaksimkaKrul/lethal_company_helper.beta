@@ -33,16 +33,17 @@ export default function Room({ user }) {
     useEffect(() => {
         let ws_url;
         if (import.meta.env.VITE_API_URL) {
-            // В интернете используем wss:// (безопасный сокет)
             ws_url = import.meta.env.VITE_API_URL.replace(/^http/, 'ws');
         } else {
             ws_url = `ws://${window.location.host}`;
         }
 
+        // Подключаемся с поддержкой передачи кук
         const socket = new WebSocket(`${ws_url}/ws/rooms/${roomId}/`);
         socketRef.current = socket;
 
-        socket.onopen = () => console.log("Comms established.");
+        socket.onopen = () => console.log("Lethal link established.");
+        
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
             if (data.type === "UPDATE_QUOTAS") setQuotas(data.content);
@@ -91,14 +92,13 @@ export default function Room({ user }) {
         sendQuotasUpdate(newQuotas);
     };
 
+    // ... функции handleExport и handleImportClick остаются без изменений ...
     const handleExport = () => {
         const dataToSave = { date: new Date().toISOString(), roomCode: roomInfo.code, quotas, museum: museumItems };
         const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `LethalSave_${roomInfo.code}.json`;
-        link.click();
+        const link = document.createElement("a"); link.href = url;
+        link.download = `LethalSave_${roomInfo.code}.json`; link.click();
     };
 
     const handleImportClick = () => fileInputRef.current.click();
@@ -114,7 +114,7 @@ export default function Room({ user }) {
                     sendQuotasUpdate(data.quotas);
                     if (data.museum) sendMuseumUpdate(data.museum);
                 }
-            } catch (err) { alert("Invalid save file."); }
+            } catch (err) { alert("Corrupted save file."); }
         };
         reader.readAsText(file);
     };

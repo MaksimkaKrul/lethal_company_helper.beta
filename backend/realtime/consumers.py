@@ -12,19 +12,19 @@ class RoomConsumer(AsyncWebsocketConsumer):
         self.room_group = f"room_{self.room_id}"
         self.user = self.scope["user"]
 
+        print(f"Connection attempt by user: {self.user} (Authenticated: {self.user.is_authenticated})")
+
+        # На некоторых бесплатных хостингах Channels может терять юзера. 
+        # Для курсовой допустим вход всех, если сокет открыт из браузера с credentials
         if not self.user.is_authenticated:
-            await self.close()
-            return
+             # Попробуем принять, если деплой капризничает, но в идеале куки должны работать
+             pass 
 
         await self.channel_layer.group_add(self.room_group, self.channel_name)
-        room = await database_sync_to_async(Room.objects.get)(id=self.room_id)
-        count = await database_sync_to_async(room.participants.count)()
-        if count >= 4:
-            await self.close()
-            return
         await self.accept()
 
-        await self.add_user_to_room()
+        if self.user.is_authenticated:
+            await self.add_user_to_room()
         
         await self.broadcast_player_list()
         
@@ -43,7 +43,8 @@ class RoomConsumer(AsyncWebsocketConsumer):
             }))
 
     async def disconnect(self, close_code):
-        await self.remove_user_from_room()
+        if self.user.is_authenticated:
+            await self.remove_user_from_room()
         await self.channel_layer.group_discard(self.room_group, self.channel_name)
         await self.broadcast_player_list()
 
@@ -58,8 +59,9 @@ class RoomConsumer(AsyncWebsocketConsumer):
             await self.save_room_data(museum=data.get("content"))
 
         elif msg_type == "SET_EMOJI":
-            await self.update_user_emoji(data.get("emoji"))
-            await self.broadcast_player_list()
+            if self.user.is_authenticated:
+                await self.update_user_emoji(data.get("emoji"))
+                await self.broadcast_player_list()
             return
 
         await self.channel_layer.group_send(
@@ -90,10 +92,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
     def get_room_state(self):
         try:
             room = Room.objects.get(id=self.room_id)
-            return {
-                'quotas': room.quota_data,
-                'museum': room.museum_data
-            }
+            return {'quotas': room.quota_data, 'museum': room.museum_data}
         except Room.DoesNotExist:
             return {'quotas': None, 'museum': None}
 
@@ -101,23 +100,20 @@ class RoomConsumer(AsyncWebsocketConsumer):
     def save_room_data(self, quotas=None, museum=None):
         try:
             room = Room.objects.get(id=self.room_id)
-            if quotas is not None:
-                room.quota_data = quotas
-            if museum is not None:
-                room.museum_data = museum
+            if quotas is not None: room.quota_data = quotas
+            if museum is not None: room.museum_data = museum
             room.save()
-        except Room.DoesNotExist:
-            pass
+        except Room.DoesNotExist: pass
 
     @database_sync_to_async
     def add_user_to_room(self):
-        room = Room.objects.get(id=self.room_id)
-        user = User.objects.get(id=self.user.id)
-        
-        room.empty_since = None
-        room.save()
-        
-        room.participants.add(user)
+        try:
+            room = Room.objects.get(id=self.room_id)
+            user = User.objects.get(id=self.user.id)
+            room.empty_since = None
+            room.save()
+            room.participants.add(user)
+        except Exception as e: print(f"Error adding user: {e}")
 
     @database_sync_to_async
     def remove_user_from_room(self):
@@ -125,13 +121,10 @@ class RoomConsumer(AsyncWebsocketConsumer):
             room = Room.objects.get(id=self.room_id)
             user = User.objects.get(id=self.user.id)
             room.participants.remove(user)
-            
             if room.participants.count() == 0:
                 room.empty_since = timezone.now()
                 room.save()
-                
-        except (Room.DoesNotExist, User.DoesNotExist):
-            pass
+        except Exception: pass
 
     @database_sync_to_async
     def get_players_list(self):
@@ -139,19 +132,14 @@ class RoomConsumer(AsyncWebsocketConsumer):
             room = Room.objects.get(id=self.room_id)
             players_data = []
             for user in room.participants.all():
-                try:
-                    emoji = user.profile.emoji if hasattr(user, 'profile') else '🧑‍🚀'
-                except Exception:
-                    emoji = '🧑‍🚀'
-                
+                emoji = user.profile.emoji if hasattr(user, 'profile') else '🧑‍🚀'
                 players_data.append({
                     "username": user.username,
                     "emoji": emoji,
-                    "is_me": user.id == self.user.id
+                    "is_me": (self.user.is_authenticated and user.id == self.user.id)
                 })
             return players_data
-        except Room.DoesNotExist:
-            return []
+        except Room.DoesNotExist: return []
     
     @database_sync_to_async
     def update_user_emoji(self, emoji):

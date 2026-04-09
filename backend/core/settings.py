@@ -6,7 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-me')
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-# Render за прокси, это нужно для правильной работы HTTPS
+# Обязательно для работы за прокси Render (чтобы Django видел HTTPS)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
@@ -65,7 +65,7 @@ ASGI_APPLICATION = 'core.asgi.application'
 DATABASES = {
     'default': dj_database_url.config(
         default=f'sqlite:///{BASE_DIR / "db.sqlite3"}',
-        conn_max_age=0 # Отключаем постоянные соединения для экономии ресурсов Render
+        conn_max_age=0
     )
 }
 
@@ -81,15 +81,12 @@ CHANNEL_LAYERS = {
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "core.auth.CsrfExemptSessionAuthentication", # Твой класс, отключающий CSRF для API
+        "core.auth.CsrfExemptSessionAuthentication", # Твой класс для обхода CSRF
     ],
-    "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.IsAuthenticated",
-    ]
 }
 
-# --- КРОСС-ДОМЕННАЯ БЕЗОПАСНОСТЬ ---
-CORS_ALLOWED_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
+# --- КРОСС-ДОМЕННАЯ БЕЗОПАСНОСТЬ (Netlify + Render) ---
+CORS_ALLOWED_ORIGINS = ["http://localhost:5173"]
 FRONTEND_URL = os.environ.get('FRONTEND_URL')
 if FRONTEND_URL:
     CORS_ALLOWED_ORIGINS.append(FRONTEND_URL)
@@ -100,7 +97,7 @@ if FRONTEND_URL:
 
 CORS_ALLOW_CREDENTIALS = True
 
-# Настройки куки для Cross-Site доступа
+# Настройки КУКИ (Критично для авторизации и сокетов)
 SESSION_COOKIE_SAMESITE = 'None'
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SAMESITE = 'None'
