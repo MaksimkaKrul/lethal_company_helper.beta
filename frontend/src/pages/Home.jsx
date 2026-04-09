@@ -9,7 +9,7 @@ export default function Home({ user, setUser }) {
 
   const handleLogin = async (username, password) => {
     try {
-      const res = await fetch(`${API_BASE}/api/users/login//`, {
+      const res = await fetch(`${API_BASE}/api/users/login/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include", // Передаем куки
