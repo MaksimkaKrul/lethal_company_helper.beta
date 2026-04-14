@@ -1,47 +1,44 @@
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from django.db import IntegrityError
-
 from .services import RoomService
-from .models import Room
+from .exceptions import RoomError, RoomNotFound, RoomConflictError, RoomValidationError, RoomInternalError
 from core.auth import CsrfExemptSessionAuthentication
 
 class RoomCreateView(APIView):
-    permission_classes = [IsAuthenticated]
     authentication_classes = [CsrfExemptSessionAuthentication]
 
     def post(self, request):
-        service = RoomService()
-        data = request.data
         try:
-            dto = service.create_room(
+            room = RoomService.create_room(
                 owner=request.user,
-                game_version=data.get("gameVersion"),
-                code=data.get("code"),
+                game_version=request.data.get("gameVersion"),
+                code=request.data.get("code"),
             )
             return Response({
-                "id": dto.id,
-                "code": dto.code,
-                "gameVersion": dto.game_version,
+                "id": room.id,
+                "code": room.code,
+                "gameVersion": room.game_version,
             }, status=status.HTTP_201_CREATED)
-        except IntegrityError:
-            return Response({"error": "This Room Code is already taken by another captain."}, status=400)
-    
+        except RoomValidationError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except RoomConflictError as e:
+            return Response({"error": str(e)}, status=status.HTTP_409_CONFLICT)
+        except RoomInternalError as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except RoomError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 class RoomDetailByCodeView(APIView):
-    permission_classes = [IsAuthenticated]
     authentication_classes = [CsrfExemptSessionAuthentication] 
 
     def get(self, request, code):
         try:
-            room = Room.objects.get(code=code.upper())
+            room = RoomService.get_room_by_code(code)
             return Response({
                 "id": room.id,
                 "code": room.code,
                 "gameVersion": room.game_version
-            })
-        except Room.DoesNotExist:
-            return Response({"detail": "Room not found"}, status=status.HTTP_404_NOT_FOUND)
+            }, status=status.HTTP_200_OK)
+        except RoomNotFound as e:
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
