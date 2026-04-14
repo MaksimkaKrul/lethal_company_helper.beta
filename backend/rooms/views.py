@@ -8,11 +8,11 @@ from django.db import IntegrityError
 
 from .services import RoomService
 from .models import Room
-from core.auth import CsrfExemptSessionAuthentication # Импортируем наш обход CSRF
+from core.auth import CsrfExemptSessionAuthentication
 
 class RoomCreateView(APIView):
     permission_classes = [IsAuthenticated]
-    authentication_classes = [CsrfExemptSessionAuthentication] # Добавлено
+    authentication_classes = [CsrfExemptSessionAuthentication]
 
     def post(self, request):
         service = RoomService()
@@ -33,11 +33,11 @@ class RoomCreateView(APIView):
     
 class RoomDetailByCodeView(APIView):
     permission_classes = [IsAuthenticated]
-    authentication_classes = [CsrfExemptSessionAuthentication] # Добавлено
+    authentication_classes = [CsrfExemptSessionAuthentication] 
 
     def get(self, request, code):
         try:
-            room = Room.objects.get(code=code)
+            room = Room.objects.get(code=code.upper())
             return Response({
                 "id": room.id,
                 "code": room.code,
