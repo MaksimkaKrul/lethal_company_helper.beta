@@ -29,7 +29,7 @@ export default function Home({ user, setUser }) {
   };
 
   const handleCreateRoom = async () => {
-    const code = createData.code || Math.random().toString(36).substr(2,4).toUpperCase();
+    const code = (createData.code || Math.random().toString(36).slice(2,4)).toUpperCase();
     try {
       const res = await fetch(`${API_BASE}/api/rooms/`, {
         method: "POST",
@@ -113,7 +113,7 @@ export default function Home({ user, setUser }) {
                     <option>1.6.2</option>
                 </select>
                 <label>Room Code:</label>
-                <input className="input" placeholder="Optional custom code" value={createData.code} onChange={e => setCreateData({...createData, code: e.target.value})} />
+                <input className="input" placeholder="Optional custom code" value={createData.code} onChange={e => setCreateData({...createData, code: e.target.value.toUpperCase})} />
                 <button className="btn" onClick={handleCreateRoom}>Confirm & Launch</button>
                 <button className="btn" onClick={() => setView("menu")}>Cancel</button>
             </div>
