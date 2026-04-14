@@ -4,6 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
+from django.db import IntegrityError
 
 from .services import RoomService
 from .models import Room
@@ -16,16 +17,19 @@ class RoomCreateView(APIView):
     def post(self, request):
         service = RoomService()
         data = request.data
-        dto = service.create_room(
-            owner=request.user,
-            game_version=data.get("gameVersion"),
-            code=data.get("code"),
-        )
-        return Response({
-            "id": dto.id,
-            "code": dto.code,
-            "gameVersion": dto.version,
-        }, status=status.HTTP_201_CREATED)
+        try:
+            dto = service.create_room(
+                owner=request.user,
+                game_version=data.get("gameVersion"),
+                code=data.get("code"),
+            )
+            return Response({
+                "id": dto.id,
+                "code": dto.code,
+                "gameVersion": dto.game_version,
+            }, status=status.HTTP_201_CREATED)
+        except IntegrityError:
+            return Response({"error": "This Room Code is already taken by another captain."}, status=400)
     
 class RoomDetailByCodeView(APIView):
     permission_classes = [IsAuthenticated]
