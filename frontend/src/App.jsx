@@ -1,26 +1,20 @@
 import { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { API_BASE } from "./config"; // Імпорт тут
 import Home from "./pages/Home";
 import Room from "./pages/Room";
 import Forum from "./pages/Forum";
 import Profile from "./pages/Profile";
 
-const API_BASE = import.meta.env.VITE_API_URL || "";
-
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
+  useEffect(() => { checkAuth(); }, []);
 
   const checkAuth = async () => {
     try {
-      // ИСПРАВЛЕНО: Теперь отправляем куки, чтобы сервер нас узнал
-      const res = await fetch(`${API_BASE}/api/users/me/`, {
-          credentials: "include" 
-      });
+      const res = await fetch(`${API_BASE}/api/users/me/`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setUser(data.username);
@@ -28,7 +22,6 @@ function App() {
         setUser(null);
       }
     } catch (e) {
-      console.error("Auth check failed", e);
       setUser(null);
     } finally {
       setLoading(false);

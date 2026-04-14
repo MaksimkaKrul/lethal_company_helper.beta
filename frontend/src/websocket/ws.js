@@ -1,18 +1,86 @@
-export function connectToRoom(roomId, onMessage) {
-    const API_BASE = import.meta.env.VITE_API_URL || "";
-    let ws_url;
+import { WS_BASE } from "../config";
 
-    if (API_BASE) {
-        // Если есть VITE_API_URL (прод), меняем http(s) на ws(s)
-        ws_url = API_BASE.replace(/^http/, 'ws');
-    } else {
-        // Локалка
-        ws_url = `ws://${window.location.host}`;
+let _socket = null;
+let _listeners = new Set();
+let _reconnectAttempts = 0;
+let _reconnectTimeout = null;
+let _messageQueue = [];
+let _currentRoomId = null;
+
+export const WebSocketService = {
+  connect(roomId) {
+    if (_socket && _socket.readyState <= 1) return;
+
+    _currentRoomId = roomId;
+    clearTimeout(_reconnectTimeout);
+
+    _socket = new WebSocket(`${WS_BASE}/ws/rooms/${roomId}/`);
+
+    _socket.onopen = () => {
+      _reconnectAttempts = 0;
+      while (_messageQueue.length > 0 && _socket?.readyState === WebSocket.OPEN) {
+        this.send(_messageQueue.shift());
+      }
+    };
+
+    _socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        _listeners.forEach(listener => listener(data));
+      } catch (e) {
+        console.error("WS parse error:", e);
+      }
+    };
+
+    _socket.onclose = () => {
+      _socket = null;
+      clearTimeout(_reconnectTimeout);
+      
+      if (!_currentRoomId) return;
+
+      const delay = Math.min(1000 * Math.pow(2, _reconnectAttempts), 30000);
+      _reconnectTimeout = setTimeout(() => {
+        _reconnectAttempts++;
+        this.connect(_currentRoomId);
+      }, delay);
+    };
+
+    _socket.onerror = () => _socket?.close();
+
+    if (!window._wsUnloadBound) {
+      window.addEventListener("beforeunload", () => this.disconnect());
+      window._wsUnloadBound = true;
     }
+  },
 
-    const socket = new WebSocket(`${ws_url}/ws/rooms/${roomId}/`);
+  subscribe(callback) {
+    if (typeof callback !== "function") return () => {};
+    
+    if (_listeners.size > 50) {
+      console.warn("High WS listener count detected");
+    }
+    _listeners.add(callback);
+    return () => _listeners.delete(callback);
+  },
 
-    socket.onmessage = (event) => onMessage(JSON.parse(event.data));
+  send(payload) {
+    if (_socket?.readyState === WebSocket.OPEN) {
+      _socket.send(JSON.stringify(payload));
+    } else {
+      if (_messageQueue.length > 100) _messageQueue.shift();
+      _messageQueue.push(payload);
+    }
+  },
 
-    return socket;
-}
+  disconnect() {
+    _currentRoomId = null;
+    clearTimeout(_reconnectTimeout);
+    _messageQueue = [];
+    if (_socket) {
+      _socket.onclose = null;
+      _socket.close();
+      _socket = null;
+    }
+    _listeners.clear();
+  }
+};

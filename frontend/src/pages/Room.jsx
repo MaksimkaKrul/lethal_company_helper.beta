@@ -3,8 +3,8 @@ import { useParams, useLocation, useNavigate } from "react-router-dom";
 import QuotaTable from "../components/QuotaTable";
 import Museum from "../components/Museum";
 import PlayersList from "../components/PlayersList";
-
-const API_BASE = import.meta.env.VITE_API_URL || "";
+import { WebSocketService } from "../websocket/ws";
+import { RoomCommands } from "../websocket/commands";
 
 const createEmptyQuota = (id) => ({
     id: id, 
@@ -19,89 +19,67 @@ export default function Room({ user }) {
     const { roomId } = useParams();
     const location = useLocation();
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState("Quota");
-    const socketRef = useRef(null);
     const fileInputRef = useRef(null);
 
+    const [activeTab, setActiveTab] = useState("Quota");
     const [players, setPlayers] = useState([]);
-    const [scale, setScale] = useState(1);
+    const [scale, setScale] = useState(1.0);
     const [quotas, setQuotas] = useState([{ ...createEmptyQuota(1), quota: 130 }]);
     const [museumItems, setMuseumItems] = useState([]); 
 
     const roomInfo = location.state || { code: "???", version: "?" };
 
     useEffect(() => {
-        let ws_url;
-        if (import.meta.env.VITE_API_URL) {
-            ws_url = import.meta.env.VITE_API_URL.replace(/^http/, 'ws');
-        } else {
-            ws_url = `ws://${window.location.host}`;
-        }
-
-        // Подключаемся с поддержкой передачи кук
-        const socket = new WebSocket(`${ws_url}/ws/rooms/${roomId}/`);
-        socketRef.current = socket;
-
-        socket.onopen = () => console.log("Lethal link established.");
+        WebSocketService.connect(roomId);
         
-        socket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
+        const unsubscribe = WebSocketService.subscribe((data) => {
             if (data.type === "UPDATE_QUOTAS") setQuotas(data.content);
             if (data.type === "UPDATE_MUSEUM") setMuseumItems(data.content);
             if (data.type === "UPDATE_PLAYERS") setPlayers(data.players);
-        };
+        });
 
-        return () => socket.close();
+        return () => unsubscribe();
     }, [roomId]);
 
-    const sendQuotasUpdate = (newQuotas) => {
+    const broadcastQuotas = (newQuotas) => {
         setQuotas(newQuotas);
-        if (socketRef.current?.readyState === WebSocket.OPEN) {
-            socketRef.current.send(JSON.stringify({ type: "UPDATE_QUOTAS", content: newQuotas }));
-        }
+        WebSocketService.send(RoomCommands.updateQuotas(newQuotas));
     };
 
-    const sendMuseumUpdate = (newItems) => {
+    const broadcastMuseum = (newItems) => {
         setMuseumItems(newItems);
-        if (socketRef.current?.readyState === WebSocket.OPEN) {
-            socketRef.current.send(JSON.stringify({ type: "UPDATE_MUSEUM", content: newItems }));
-        }
-    };
-
-    const sendEmojiUpdate = (newEmoji) => {
-        if (socketRef.current?.readyState === WebSocket.OPEN) {
-            socketRef.current.send(JSON.stringify({ type: "SET_EMOJI", emoji: newEmoji }));
-        }
+        WebSocketService.send(RoomCommands.updateMuseum(newItems));
     };
 
     const handleUpdateQuota = (index, updatedQuota) => {
         const newQuotas = [...quotas];
         newQuotas[index] = updatedQuota;
-        sendQuotasUpdate(newQuotas);
+        broadcastQuotas(newQuotas);
     };
 
     const addQuota = () => {
         const nextId = quotas.length + 1;
-        const newQuotas = [...quotas, createEmptyQuota(nextId)];
-        sendQuotasUpdate(newQuotas);
+        broadcastQuotas([...quotas, createEmptyQuota(nextId)]);
     };
 
     const deleteQuota = () => {
-        if (quotas.length <= 1) return;
-        const newQuotas = quotas.slice(0, -1);
-        sendQuotasUpdate(newQuotas);
+        if (quotas.length > 1) broadcastQuotas(quotas.slice(0, -1));
     };
 
-    // ... функции handleExport и handleImportClick остаются без изменений ...
     const handleExport = () => {
-        const dataToSave = { date: new Date().toISOString(), roomCode: roomInfo.code, quotas, museum: museumItems };
+        const dataToSave = { 
+            date: new Date().toISOString(), 
+            roomCode: roomInfo.code, 
+            quotas, 
+            museum: museumItems 
+        };
         const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
-        const link = document.createElement("a"); link.href = url;
-        link.download = `LethalSave_${roomInfo.code}.json`; link.click();
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `LethalSave_${roomInfo.code}.json`;
+        link.click();
     };
-
-    const handleImportClick = () => fileInputRef.current.click();
 
     const handleFileChange = (event) => {
         const file = event.target.files[0];
@@ -111,10 +89,10 @@ export default function Room({ user }) {
             try {
                 const data = JSON.parse(e.target.result);
                 if (data.quotas) {
-                    sendQuotasUpdate(data.quotas);
-                    if (data.museum) sendMuseumUpdate(data.museum);
+                    broadcastQuotas(data.quotas);
+                    if (data.museum) broadcastMuseum(data.museum);
                 }
-            } catch (err) { alert("Corrupted save file."); }
+            } catch (err) { alert("ERROR: Save file corrupted."); }
         };
         reader.readAsText(file);
     };
@@ -122,24 +100,57 @@ export default function Room({ user }) {
     return (
         <div className="screen" style={{display:'block'}}>
             <input type="file" ref={fileInputRef} style={{display: 'none'}} accept=".json" onChange={handleFileChange} />
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 10px', background: '#000', borderBottom: '1px solid #333'}}>
+            
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 15px', background: '#000', borderBottom: '1px solid #333'}}>
                 <div style={{display:'flex', alignItems:'center', gap: 15}}>
-                    <h1 className="logo small" style={{margin:0, fontSize: '16px'}}>Room {roomInfo.code}</h1>
-                    <button className="btn" style={{padding:'4px 8px', fontSize:10, background: '#4b6e32', color:'#fff'}} onClick={handleExport}>SAVE</button>
-                    <button className="btn" style={{padding:'4px 8px', fontSize:10, background: '#e69138', color:'#000'}} onClick={handleImportClick}>LOAD</button>
+                    <h1 className="logo small" style={{margin:0, fontSize: '18px'}}>Room {roomInfo.code}</h1>
+                    <button className="btn" style={{background: '#4b6e32', color: '#fff'}} onClick={handleExport}>SAVE</button>
+                    <button className="btn" style={{background: '#e69138'}} onClick={() => fileInputRef.current.click()}>LOAD</button>
                 </div>
-                <button className="btn" style={{padding:'2px 8px', fontSize:10}} onClick={() => navigate("/")}>EXIT</button>
+                
+                <div style={{display:'flex', gap: 15, alignItems:'center'}}>
+                    <div style={{display:'flex', alignItems:'center', gap: 5}}>
+                        <span style={{fontSize: 9, color: '#666'}}>UI SCALE: {scale}</span>
+                        <input type="range" min="0.6" max="1.4" step="0.1" value={scale} onChange={(e) => setScale(Number(e.target.value))} />
+                    </div>
+                    <button className="btn" onClick={() => { WebSocketService.disconnect(); navigate("/"); }}>EXIT</button>
+                </div>
             </div>
-            <div style={{transform: `scale(${scale})`, transformOrigin: 'top center', transition: 'transform 0.2s'}}>
+
+            <div style={{
+                transform: `scale(${scale})`, 
+                transformOrigin: 'top center', 
+                transition: 'transform 0.1s ease-out',
+                padding: '10px'
+            }}>
                 <div className="tabs">
-                    <button className={`tab ${activeTab === 'Quota' ? 'active' : ''}`} onClick={() => setActiveTab('Quota')}>Quota</button>
-                    <button className={`tab ${activeTab === 'Museum' ? 'active' : ''}`} onClick={() => setActiveTab('Museum')}>Museum</button>
-                    <button className={`tab ${activeTab === 'Players' ? 'active' : ''}`} onClick={() => setActiveTab('Players')}>Players</button>
+                    {['Quota', 'Museum', 'Players'].map(t => (
+                        <button 
+                            key={t} 
+                            className={`tab ${activeTab === t ? 'active' : ''}`} 
+                            onClick={() => setActiveTab(t)}
+                        >
+                            {t} Table
+                        </button>
+                    ))}
                 </div>
-                <div className="tab-pane active" style={{display: 'block'}}>
-                    {activeTab === 'Quota' && <QuotaTable quotas={quotas} onUpdate={handleUpdateQuota} onAdd={addQuota} onDelete={deleteQuota} />}
-                    {activeTab === 'Museum' && <Museum collectedItems={museumItems} onUpdate={sendMuseumUpdate} />}
-                    {activeTab === 'Players' && <PlayersList players={players} currentUser={user} onSetEmoji={sendEmojiUpdate} />}
+
+                <div className="tab-pane active" style={{display: 'block', background: '#111', border: '1px solid #333', borderTop: 'none'}}>
+                    {activeTab === 'Quota' && (
+                        <QuotaTable quotas={quotas} onUpdate={handleUpdateQuota} onAdd={addQuota} onDelete={deleteQuota} />
+                    )}
+                    
+                    {activeTab === 'Museum' && (
+                        <Museum collectedItems={museumItems} onUpdate={broadcastMuseum} />
+                    )}
+                    
+                    {activeTab === 'Players' && (
+                        <PlayersList 
+                            players={players} 
+                            currentUser={user} 
+                            onSetEmoji={(emo) => WebSocketService.send(RoomCommands.setEmoji(emo))} 
+                        />
+                    )}
                 </div>
             </div>
         </div>
