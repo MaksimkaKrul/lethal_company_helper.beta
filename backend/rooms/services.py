@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class RoomService:
     @staticmethod
     def create_room(owner, game_version, code):
-        return Room.objects.create(owner=owner, game_version=game_version, code=code)
+        return Room.objects.create(owner=owner, game_version=game_version, code=code.upper())
 
     @staticmethod
     @database_sync_to_async
