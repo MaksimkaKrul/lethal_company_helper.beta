@@ -7,6 +7,9 @@ import { useRoomSocket } from "../hooks/useRoomSocket";
 import { WebSocketStatus } from "../websocket/ws";
 import { RoomCommands } from "../websocket/commands";
 
+// --- ДОБАВЬ ЭТИ ИМПОРТЫ ---
+import { QUOTA_STRATEGIES, DEFAULT_STRATEGY } from "../utils/quotaStrategies";
+
 const createEmptyQuota = (id) => ({
     id: id, 
     quota: "", sold: 0,
@@ -22,6 +25,10 @@ export default function Room({ user }) {
     const fileInputRef = useRef(null);
     const [activeTab, setActiveTab] = useState("Quota");
     const [scale, setScale] = useState(1.0);
+
+    // --- ДОБАВЬ СОСТОЯНИЕ СТРАТЕГИИ ---
+    const [strategyName, setStrategyName] = useState(DEFAULT_STRATEGY);
+    const currentStrategy = QUOTA_STRATEGIES[strategyName];
 
     const { status, players, quotas, museum, send } = useRoomSocket(roomId);
     const roomInfo = location.state || { code: "???", version: "?" };
@@ -86,9 +93,19 @@ export default function Room({ user }) {
                     ))}
                 </div>
                 <div className="tab-pane active" style={{background: '#111', border: '1px solid #333', borderTop: 'none'}}>
-                    {activeTab === 'Quota' && <QuotaTable quotas={quotas.length ? quotas : [{...createEmptyQuota(1), quota: 130}]} onUpdate={(idx, val) => {
-                        const next = [...quotas]; next[idx] = val; send(RoomCommands.updateQuotas(next));
-                    }} onAdd={() => send(RoomCommands.updateQuotas([...quotas, createEmptyQuota(quotas.length+1)]))} onDelete={() => send(RoomCommands.updateQuotas(quotas.slice(0, -1)))} />}
+                    {activeTab === 'Quota' && (
+                        <QuotaTable 
+                            quotas={quotas.length ? quotas : [{...createEmptyQuota(1), quota: 130}]} 
+                            strategy={currentStrategy} // <-- ПЕРЕДАЕМ СТРАТЕГИЮ ТУТ
+                            onUpdate={(idx, val) => {
+                                const next = [...quotas]; 
+                                next[idx] = val; 
+                                send(RoomCommands.updateQuotas(next));
+                            }} 
+                            onAdd={() => send(RoomCommands.updateQuotas([...quotas, createEmptyQuota(quotas.length+1)]))} 
+                            onDelete={() => send(RoomCommands.updateQuotas(quotas.slice(0, -1)))} 
+                        />
+                    )}
                     {activeTab === 'Museum' && <Museum collectedItems={museum} onUpdate={(items) => send(RoomCommands.updateMuseum(items))} />}
                     {activeTab === 'Players' && <PlayersList players={players} currentUser={user} onSetEmoji={(emo) => send(RoomCommands.setEmoji(emo))} />}
                 </div>
