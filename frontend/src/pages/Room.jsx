@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import QuotaTable from "../components/QuotaTable";
 import Museum from "../components/Museum";
@@ -6,8 +6,7 @@ import PlayersList from "../components/PlayersList";
 import { useRoomSocket } from "../hooks/useRoomSocket";
 import { WebSocketStatus } from "../websocket/ws";
 import { RoomCommands } from "../websocket/commands";
-
-// --- ДОБАВЬ ЭТИ ИМПОРТЫ ---
+import { apiClient } from "../api/client";
 import { QUOTA_STRATEGIES, DEFAULT_STRATEGY } from "../utils/quotaStrategies";
 
 const createEmptyQuota = (id) => ({
@@ -23,17 +22,31 @@ export default function Room({ user }) {
     const location = useLocation();
     const navigate = useNavigate();
     const fileInputRef = useRef(null);
+    
     const [activeTab, setActiveTab] = useState("Quota");
     const [scale, setScale] = useState(1.0);
 
-    // --- ДОБАВЬ СОСТОЯНИЕ СТРАТЕГИИ ---
+    const [roomInfo, setRoomInfo] = useState(location.state || null);
+    
     const [strategyName, setStrategyName] = useState(DEFAULT_STRATEGY);
     const currentStrategy = QUOTA_STRATEGIES[strategyName];
 
     const { status, players, quotas, museum, send } = useRoomSocket(roomId);
-    const roomInfo = location.state || { code: "???", version: "?" };
+
+    useEffect(() => {
+        if (!roomInfo) {
+            apiClient.get(`/api/rooms/${roomId}/`)
+                .then(data => {
+                    setRoomInfo(data);
+                })
+                .catch(err => {
+                    console.error("Critical error: Room record unreachable", err);
+                });
+        }
+    }, [roomId, roomInfo, navigate]);
 
     const handleExport = () => {
+        if (!roomInfo) return;
         const dataToSave = { date: new Date().toISOString(), roomCode: roomInfo.code, quotas, museum };
         const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: "application/json" });
         const link = document.createElement("a");
@@ -56,6 +69,14 @@ export default function Room({ user }) {
         reader.readAsText(file);
     };
 
+    if (!roomInfo) {
+        return (
+            <div className="screen" style={{display:'block', padding: '20px', color: '#f7a85d'}}>
+                <h1 className="logo small">Connecting to Ship Terminal...</h1>
+            </div>
+        );
+    }
+
     return (
         <div className="screen" style={{display:'block'}}>
             <input type="file" ref={fileInputRef} style={{display: 'none'}} accept=".json" onChange={handleFileChange} />
@@ -71,12 +92,14 @@ export default function Room({ user }) {
 
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 15px', background: '#000', borderBottom: '1px solid #333'}}>
                 <div style={{display:'flex', alignItems:'center', gap: 15}}>
-                    <h1 className="logo small" style={{margin:0, fontSize: '18px'}}>Room {roomInfo.code}</h1>
+                    <h1 className="logo small" style={{margin:0, fontSize: '18px'}}>
+                        Room {roomInfo.code} <span style={{fontSize: 10, color: '#666'}}>v{roomInfo.gameVersion}</span>
+                    </h1>
                     <button className="btn" style={{background: '#4b6e32', color: '#fff'}} onClick={handleExport}>SAVE</button>
                     <button className="btn" style={{background: '#e69138'}} onClick={() => fileInputRef.current.click()}>LOAD</button>
                 </div>
                 <div style={{display:'flex', gap: 15, alignItems:'center'}}>
-                    <input type="range" min="0.6" max="1.4" step="0.1" value={scale} onChange={(e) => setScale(Number(e.target.value))} />
+                    <input type="range" min="0.6" max="1.4" step="0.1" value={scale} onChange={(e) => setScale(Number(e.target.value))} title="Scale UI" />
                     <button className="btn" onClick={() => navigate("/")}>EXIT</button>
                 </div>
             </div>
@@ -96,7 +119,7 @@ export default function Room({ user }) {
                     {activeTab === 'Quota' && (
                         <QuotaTable 
                             quotas={quotas.length ? quotas : [{...createEmptyQuota(1), quota: 130}]} 
-                            strategy={currentStrategy} // <-- ПЕРЕДАЕМ СТРАТЕГИЮ ТУТ
+                            strategy={currentStrategy}
                             onUpdate={(idx, val) => {
                                 const next = [...quotas]; 
                                 next[idx] = val; 
