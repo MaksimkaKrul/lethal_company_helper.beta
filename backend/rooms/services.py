@@ -15,32 +15,18 @@ class RoomService:
     @staticmethod
     def create_room(owner, game_version, code):
         if game_version not in RoomService.ALLOWED_VERSIONS:
-            raise RoomValidationError(f"Invalid version. Authorized versions: {', '.join(sorted(RoomService.ALLOWED_VERSIONS))}")
+            raise RoomValidationError(f"Invalid version.")
         
         normalized_code = str(code or "").strip().upper()
-        if not normalized_code:
-            raise RoomValidationError("Room code is mandatory for terminal link.")
-            
-        if not RoomService.CODE_REGEX.match(normalized_code):
-            raise RoomValidationError("Code must be 1-10 alphanumeric characters (English only).")
-
         try:
             room = Room.objects.create(
                 owner=owner, 
                 game_version=game_version, 
                 code=normalized_code
             )
-            logger.info("Room created successfully", extra={
-                "owner_id": owner.id, 
-                "code": normalized_code,
-                "version": game_version
-            })
             return room
         except IntegrityError:
-            raise RoomConflictError(f"Transmission overlap: Code {normalized_code} is already active.")
-        except Exception as e:
-            logger.error("Unexpected failure during room creation", extra={"error": str(e)})
-            raise RoomInternalError("Critical system failure during room initialization.")
+            raise RoomConflictError(f"Code {normalized_code} is already active.")
 
     @staticmethod
     def get_room_by_code(code):
@@ -48,8 +34,7 @@ class RoomService:
         try:
             return Room.objects.get(code=normalized_code)
         except Room.DoesNotExist:
-            logger.warning("Link rejected: Room not found", extra={"code": normalized_code})
-            raise RoomNotFound(f"Room {normalized_code} is not responding.")
+            raise RoomNotFound(f"Room {normalized_code} not found.")
 
     @staticmethod
     @database_sync_to_async
@@ -82,12 +67,52 @@ class RoomService:
                 user = User.objects.get(id=user_id)
                 room.empty_since = None
                 room.save(update_fields=["empty_since"])
-                
-                if not room.participants.filter(id=user_id).exists():
-                    room.participants.add(user)
-                
-                logger.info("Player joined room", extra={"room_id": room_id, "user_id": user_id})
+                room.participants.add(user)
                 return True
         except Exception as e:
-            logger.error("Async join failure", extra={"room_id": room_id, "user_id": user_id, "error": str(e)})
+            logger.error(f"Join error: {e}")
             return False
+
+    @staticmethod
+    @database_sync_to_async
+    def remove_user_from_room(room_id, user_id):
+        try:
+            room = Room.objects.get(id=room_id)
+            from django.contrib.auth.models import User
+            user = User.objects.get(id=user_id)
+            room.participants.remove(user)
+
+            if room.participants.count() == 0:
+                room.empty_since = timezone.now()
+                room.save(update_fields=["empty_since"])
+            return True
+        except Exception:
+            return False
+
+    @staticmethod
+    @database_sync_to_async
+    def get_players_list(room_id, current_user_id, is_authenticated):
+        try:
+            room = Room.objects.get(id=room_id)
+            players = []
+            for p in room.participants.all():
+                emoji = "👤"
+                if hasattr(p, 'profile'):
+                    emoji = p.profile.emoji
+                
+                players.append({
+                    "username": p.username,
+                    "emoji": emoji,
+                    "is_me": is_authenticated and p.id == current_user_id
+                })
+            return players
+        except Room.DoesNotExist:
+            return []
+
+    @staticmethod
+    @database_sync_to_async
+    def update_user_emoji(user_id, emoji):
+        from users.models import UserProfile
+        profile, _ = UserProfile.objects.get_or_create(user_id=user_id)
+        profile.emoji = emoji
+        profile.save(update_fields=['emoji'])
