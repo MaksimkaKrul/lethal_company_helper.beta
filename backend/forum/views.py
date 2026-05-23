@@ -13,7 +13,7 @@ class ThreadListCreateView(generics.ListCreateAPIView):
         return ForumService.get_all_threads()
 
     def perform_create(self, serializer):
-        ForumService.create_thread(
+        serializer.instance = ForumService.create_thread(
             title=serializer.validated_data.get('title'),
             author=self.request.user
         )

@@ -76,11 +76,19 @@ CHANNEL_LAYERS = { "default": { "BACKEND": "channels.layers.InMemoryChannelLayer
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "core.auth.CsrfExemptSessionAuthentication",
-        "rest_framework.authentication.SessionAuthentication", # Возвращаем стандартный для стабильности
+        "rest_framework.authentication.SessionAuthentication",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.AnonRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "user": "300/min",
+        "anon": "60/min",
+    },
 }
 
-# --- КРОСС-ДОМЕННАЯ БЕЗОПАСНОСТЬ (Netlify + Render) ---
+
 CORS_ALLOWED_ORIGINS = ["http://localhost:5173"]
 FRONTEND_URL = os.environ.get('FRONTEND_URL')
 if FRONTEND_URL:
@@ -88,14 +96,14 @@ if FRONTEND_URL:
 
 CSRF_TRUSTED_ORIGINS = ["http://localhost:5173"]
 if FRONTEND_URL:
-    # ОЧЕНЬ ВАЖНО: Убедись, что тут нет лишнего слеша в конце в Render Env Vars
+
     CSRF_TRUSTED_ORIGINS.append(FRONTEND_URL)
 
 CORS_ALLOW_CREDENTIALS = True
 
-# Настройки КУКИ
+
 SESSION_COOKIE_SAMESITE = 'None'
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SAMESITE = 'None'
 CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_HTTPONLY = True # Для безопасности
+SESSION_COOKIE_HTTPONLY = True

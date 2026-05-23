@@ -43,6 +43,13 @@ class RoomService:
             return Room.objects.get(code=normalized_code)
         except Room.DoesNotExist:
             raise RoomNotFound(f"Room {normalized_code} not found.")
+        
+    @staticmethod
+    def get_room_by_id(room_id):
+        try:
+            return Room.objects.get(id=room_id)
+        except Room.DoesNotExist:
+            raise RoomNotFound("Room signal lost: not found.")
 
     @staticmethod
     @database_sync_to_async

@@ -1,7 +1,6 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Room
 from .services import RoomService
 from .exceptions import RoomError, RoomNotFound, RoomConflictError, RoomValidationError, RoomInternalError
 from core.auth import CsrfExemptSessionAuthentication
@@ -51,11 +50,11 @@ class RoomDetailView(APIView):
 
     def get(self, request, pk):
         try:
-            room = Room.objects.get(pk=pk)
+            room = RoomService.get_room_by_id(pk)
             return Response({
                 "id": room.id,
                 "code": room.code,
                 "gameVersion": room.game_version
             }, status=status.HTTP_200_OK)
-        except Room.DoesNotExist:
-            return Response({"error": "Room signal lost: not found."}, status=status.HTTP_404_NOT_FOUND)
+        except RoomNotFound as e:
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
