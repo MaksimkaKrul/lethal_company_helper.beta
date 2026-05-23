@@ -1,5 +1,6 @@
 import time
 from rooms.services import RoomService
+from .validators import validate_quotas_payload, validate_museum_payload
 
 class MessageHandlerRegistry:
     def __init__(self):
@@ -30,7 +31,11 @@ async def handle_ping(consumer, data):
 
 async def handle_update_quotas(consumer, data):
     content = data.get("content")
-    if not isinstance(content, list):
+    if not validate_quotas_payload(content):
+        return
+    
+    is_allowed = await RoomService.is_user_in_room(consumer.room_id, consumer.user.id)
+    if not is_allowed:
         return
     
     await RoomService.save_room_data(consumer.room_id, quotas=content)
@@ -40,7 +45,7 @@ async def handle_update_quotas(consumer, data):
 
 async def handle_update_museum(consumer, data):
     content = data.get("content")
-    if not isinstance(content, list):
+    if not validate_museum_payload(content):
         return
 
     await RoomService.save_room_data(consumer.room_id, museum=content)

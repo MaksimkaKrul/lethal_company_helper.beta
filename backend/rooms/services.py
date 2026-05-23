@@ -18,6 +18,10 @@ class RoomService:
             raise RoomValidationError(f"Invalid version.")
         
         normalized_code = str(code or "").strip().upper()
+        
+        if not RoomService.CODE_REGEX.fullmatch(normalized_code):
+            raise RoomValidationError("Code must be 1-10 characters long and contain only uppercase letters or numbers.")
+        
         try:
             room = Room.objects.create(
                 owner=owner, 
@@ -31,6 +35,10 @@ class RoomService:
     @staticmethod
     def get_room_by_code(code):
         normalized_code = str(code or "").strip().upper()
+        
+        if not RoomService.CODE_REGEX.fullmatch(normalized_code):
+            raise RoomValidationError("Code must be 1-10 characters long and contain only uppercase letters or numbers.")
+               
         try:
             return Room.objects.get(code=normalized_code)
         except Room.DoesNotExist:
@@ -56,6 +64,11 @@ class RoomService:
             updated = Room.objects.filter(id=room_id).update(**update_fields)
             return updated > 0
         return False
+    
+    @staticmethod
+    @database_sync_to_async
+    def is_user_in_room(room_id, user_id):
+        return Room.objects.filter(id=room_id, participants__id=user_id).exists()
 
     @staticmethod
     @database_sync_to_async

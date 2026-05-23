@@ -41,6 +41,8 @@ class RoomDetailByCodeView(APIView):
                 "code": room.code,
                 "gameVersion": room.game_version
             }, status=status.HTTP_200_OK)
+        except RoomValidationError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except RoomNotFound as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
