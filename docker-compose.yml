@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=lethal_db
+      - POSTGRES_USER=lethal_user
+      - POSTGRES_PASSWORD=lethal_password
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6381:6379"
+
+  backend:
+    build: ./backend
+    volumes:
+      - ./backend:/app
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=postgres://lethal_user:lethal_password@db:5432/lethal_db
+      - REDIS_URL=redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+
+volumes:
+  postgres_data:

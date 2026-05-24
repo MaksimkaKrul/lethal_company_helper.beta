@@ -5,6 +5,8 @@ backend/__pycache__/
 backend/*.sqlite3
 backend/media/
 *.pyc
+.env
+backend/.env
 
 # --- Node / Frontend ---
 frontend/node_modules/
@@ -12,7 +14,7 @@ frontend/dist/
 frontend/build/
 frontend/.env.local
 frontend/.DS_Store
-package-lock.json # Иногда его оставляют, но если проект учебный, можно и оставить
+package-lock.json
 
 # --- System ---
 .DS_Store

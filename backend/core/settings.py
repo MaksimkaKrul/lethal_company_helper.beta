@@ -9,6 +9,8 @@ DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/0')
+
 INSTALLED_APPS = [
     'daphne', 
     'django.contrib.admin',
@@ -63,7 +65,7 @@ ASGI_APPLICATION = 'core.asgi.application'
 DATABASES = {
     'default': dj_database_url.config(
         default=f'sqlite:///{BASE_DIR / "db.sqlite3"}',
-        conn_max_age=0
+        conn_max_age=600
     )
 }
 
@@ -71,7 +73,14 @@ STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-CHANNEL_LAYERS = { "default": { "BACKEND": "channels.layers.InMemoryChannelLayer" } }
+CHANNEL_LAYERS = { 
+    "default": { 
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+         "CONFIG":{
+             "hosts": [REDIS_URL],
+        },
+    },
+}
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -107,3 +116,5 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SAMESITE = 'None'
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
