@@ -26,7 +26,6 @@ export default function PlayersList({ players, currentUser, onSetEmoji }) {
                                 <span 
                                     style={{cursor: isMe ? 'pointer' : 'default', fontSize: '24px'}}
                                     onClick={() => isMe && setEditingEmoji(!editingEmoji)}
-                                    title={isMe ? "Click to change emoji" : ""}
                                 >
                                     {p.emoji || "🧑‍🚀"}
                                 </span>
@@ -36,7 +35,7 @@ export default function PlayersList({ players, currentUser, onSetEmoji }) {
                                         position: 'absolute', top: '110%', left: '-10px', marginTop: '5px', width: '180px',   
                                         background: '#111', border: '1px solid #f7a85d', boxShadow: '0 5px 15px rgba(0,0,0,0.8)',
                                         display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2px', 
-                                        padding: 5, zIndex: 100, borderRadius: '8px', zIndex: 999
+                                        padding: 5, zIndex: 999, borderRadius: '8px'
                                     }}>
                                         {EMOJI_OPTIONS.map(emo => (
                                             <div 
@@ -46,8 +45,6 @@ export default function PlayersList({ players, currentUser, onSetEmoji }) {
                                                             textAlign: 'center',
                                                             borderRadius: '4px',
                                                             fontSize: '20px'}}
-                                                onMouseEnter={(e) => e.target.style.background = '#333'}
-                                                onMouseLeave={(e) => e.target.style.background = 'transparent'}           
                                                 onClick={() => {
                                                     onSetEmoji(emo);
                                                     setEditingEmoji(false);

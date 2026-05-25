@@ -76,7 +76,6 @@ const ITEMS = [
 ];
 
 export default function Museum({ collectedItems, onUpdate }) {
-    
     const isCollected = (id) => collectedItems.includes(id);
 
     const toggleItem = (id) => {

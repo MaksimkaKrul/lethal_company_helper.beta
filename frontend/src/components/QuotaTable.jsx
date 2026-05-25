@@ -12,6 +12,12 @@ export default function QuotaTable({
 }) {
     let runningShipLoot = 0;
 
+    const handleCellChange = (index, newData) => {
+        const updatedQuotas = [...quotas];
+        updatedQuotas[index] = { ...updatedQuotas[index], ...newData };
+        onUpdate(updatedQuotas);
+    };
+
     return (
         <div className="quota-container">
             <table className="lc-table">
@@ -45,10 +51,8 @@ export default function QuotaTable({
                         
                         const quotaValue = parseFloat(data.quota) || 0;
                         const soldValue = parseFloat(data.sold) || 0;
-                        
                         const overtime = strategy.calculateOvertime(soldValue, quotaValue);
                         const sellToQuota = quotaValue - soldValue;
-
                         const currentLoot = Math.max(0, runningShipLoot + dayStats.total - soldValue);
                         runningShipLoot = currentLoot;
 
@@ -56,42 +60,36 @@ export default function QuotaTable({
                         const roll = strategy.calculateRoll(data.quota, prevQuota, index);
                         const prediction = strategy.getNextRollPrediction(index);
 
-                        // Универсальный хендлер обновления данных
-                        const updateData = (newData) => onUpdate(index, { ...data, ...newData });
-
                         return (
                             <React.Fragment key={data.id ?? index}>
-                                {/* Day 1 Row */}
                                 <tr style={{ borderTop: '2px solid #555' }}>
                                     <td rowSpan="3" style={{ fontSize: 16, fontWeight: 'bold' }}>{data.id}</td>
                                     <td rowSpan="3">
                                         <input className="table-input" value={data.quota} 
-                                            onChange={(e) => updateData({ quota: e.target.value })} />
+                                            onChange={(e) => handleCellChange(index, { quota: e.target.value })} />
                                     </td>
                                     <td rowSpan="3" style={{ fontStyle: 'italic', color: '#888' }}>{roll}</td>
-                                    
                                     <td>D1</td>
                                     <td>
                                         <select className="table-select" value={data.day1?.moon} 
-                                            onChange={(e) => updateData({ day1: { ...data.day1, moon: e.target.value } })}>
+                                            onChange={(e) => handleCellChange(index, { day1: { ...data.day1, moon: e.target.value } })}>
                                             {MOONS.map(m => <option key={m} value={m}>{m}</option>)}
                                         </select>
                                     </td>
                                     <td>
                                         <select className="table-select" value={data.day1?.weather}
-                                            onChange={(e) => updateData({ day1: { ...data.day1, weather: e.target.value } })}>
+                                            onChange={(e) => handleCellChange(index, { day1: { ...data.day1, weather: e.target.value } })}>
                                             {WEATHERS.map(w => <option key={w} value={w}>{w}</option>)}
                                         </select>
                                     </td>
                                     <td>
                                         <input className="table-input" value={data.day1?.collected}
-                                            onChange={(e) => updateData({ day1: { ...data.day1, collected: e.target.value } })} />
+                                            onChange={(e) => handleCellChange(index, { day1: { ...data.day1, collected: e.target.value } })} />
                                     </td>
-
                                     <td rowSpan="3" style={{ fontSize: 14, fontWeight: 'bold' }}>{dayStats.total}</td>
                                     <td rowSpan="3">
                                         <input className="table-input" style={{ color: '#6aa84f' }} value={data.sold}
-                                            onChange={(e) => updateData({ sold: e.target.value })} />
+                                            onChange={(e) => handleCellChange(index, { sold: e.target.value })} />
                                     </td>
                                     <td rowSpan="3" style={{ color: '#f6b26b', fontWeight: 'bold' }}>{currentLoot}</td>
                                     <td rowSpan="3" style={{ color: sellToQuota > 0 ? '#e06666' : '#6aa84f' }}>{sellToQuota}</td>
@@ -100,46 +98,42 @@ export default function QuotaTable({
                                         MIN: +{prediction.min}<br/>AVG: +{prediction.avg}<br/>MAX: +{prediction.max}
                                     </td>
                                 </tr>
-
-                                {/* Day 2 Row */}
                                 <tr>
                                     <td>D2</td>
                                     <td>
                                         <select className="table-select" value={data.day2?.moon} 
-                                            onChange={(e) => updateData({ day2: { ...data.day2, moon: e.target.value } })}>
+                                            onChange={(e) => handleCellChange(index, { day2: { ...data.day2, moon: e.target.value } })}>
                                             {MOONS.map(m => <option key={m} value={m}>{m}</option>)}
                                         </select>
                                     </td>
                                     <td>
                                         <select className="table-select" value={data.day2?.weather}
-                                            onChange={(e) => updateData({ day2: { ...data.day2, weather: e.target.value } })}>
+                                            onChange={(e) => handleCellChange(index, { day2: { ...data.day2, weather: e.target.value } })}>
                                             {WEATHERS.map(w => <option key={w} value={w}>{w}</option>)}
                                         </select>
                                     </td>
                                     <td>
                                         <input className="table-input" value={data.day2?.collected}
-                                            onChange={(e) => updateData({ day2: { ...data.day2, collected: e.target.value } })} />
+                                            onChange={(e) => handleCellChange(index, { day2: { ...data.day2, collected: e.target.value } })} />
                                     </td>
                                 </tr>
-
-                                {/* Day 3 Row */}
                                 <tr>
                                     <td>D3</td>
                                     <td>
                                         <select className="table-select" value={data.day3?.moon} 
-                                            onChange={(e) => updateData({ day3: { ...data.day3, moon: e.target.value } })}>
+                                            onChange={(e) => handleCellChange(index, { day3: { ...data.day3, moon: e.target.value } })}>
                                             {MOONS.map(m => <option key={m} value={m}>{m}</option>)}
                                         </select>
                                     </td>
                                     <td>
                                         <select className="table-select" value={data.day3?.weather}
-                                            onChange={(e) => updateData({ day3: { ...data.day3, weather: e.target.value } })}>
+                                            onChange={(e) => handleCellChange(index, { day3: { ...data.day3, weather: e.target.value } })}>
                                             {WEATHERS.map(w => <option key={w} value={w}>{w}</option>)}
                                         </select>
                                     </td>
                                     <td>
                                         <input className="table-input" value={data.day3?.collected}
-                                            onChange={(e) => updateData({ day3: { ...data.day3, collected: e.target.value } })} />
+                                            onChange={(e) => handleCellChange(index, { day3: { ...data.day3, collected: e.target.value } })} />
                                     </td>
                                 </tr>
                             </React.Fragment>
